@@ -85,6 +85,7 @@ public class FloodProtectionAutoConfiguration {
 
         @Bean
         @org.springframework.cloud.context.config.annotation.RefreshScope
+        @ConditionalOnMissingBean(RateLimitingTurboFilter.class)
         public RateLimitingTurboFilter rateLimitingTurboFilter(LoggingProperties properties) {
             return createFilter(properties);
         }

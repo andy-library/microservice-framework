@@ -13,6 +13,7 @@ import java.io.OutputStream;
 import java.lang.reflect.Type;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -80,6 +81,7 @@ public class Fastjson2JsonCodec implements JsonCodec {
                     "target type must not be null");
         }
         validatePayloadSize(json);
+        validateNestingDepth(json);
         try {
             return JSON.parseObject(json, type, createReaderContext());
         } catch (Exception e) {
@@ -98,6 +100,7 @@ public class Fastjson2JsonCodec implements JsonCodec {
                     "type reference must not be null");
         }
         validatePayloadSize(json);
+        validateNestingDepth(json);
         try {
             Type targetType = typeRef.getType();
             return JSON.parseObject(json, targetType, createReaderContext());
@@ -151,8 +154,11 @@ public class Fastjson2JsonCodec implements JsonCodec {
                     "element type must not be null");
         }
         validatePayloadSize(json);
+        validateNestingDepth(json);
         try {
-            return JSON.parseArray(json, type);
+            try (JSONReader reader = JSONReader.of(json, createReaderContext())) {
+                return reader.readArray(type);
+            }
         } catch (Exception e) {
             throw wrapException(e, "deserialize list of " + type.getName());
         }
@@ -169,11 +175,18 @@ public class Fastjson2JsonCodec implements JsonCodec {
                     "value type must not be null");
         }
         validatePayloadSize(json);
+        validateNestingDepth(json);
         try {
-            // For typed maps, use TypeReference approach
-            com.alibaba.fastjson2.TypeReference<Map<String, V>> typeRef =
-                    new com.alibaba.fastjson2.TypeReference<Map<String, V>>() {};
-            return JSON.parseObject(json, typeRef.getType(), createReaderContext());
+            Map<String, Object> rawValues;
+            try (JSONReader reader = JSONReader.of(json, createReaderContext())) {
+                rawValues = reader.readObject();
+            }
+            Map<String, V> typedValues = new LinkedHashMap<>();
+            for (Map.Entry<String, Object> entry : rawValues.entrySet()) {
+                String valueJson = JSON.toJSONString(entry.getValue());
+                typedValues.put(entry.getKey(), JSON.parseObject(valueJson, valueType, createReaderContext()));
+            }
+            return typedValues;
         } catch (Exception e) {
             throw wrapException(e, "deserialize map with value type " + valueType.getName());
         }
@@ -193,6 +206,40 @@ public class Fastjson2JsonCodec implements JsonCodec {
             throw new JsonCodecException(JsonCodecException.JSON_PAYLOAD_EXCEEDED,
                     "JSON payload size " + json.length()
                     + " exceeds maximum allowed size " + maxPayloadSize);
+        }
+    }
+
+    private void validateNestingDepth(String json) {
+        int maxDepth = properties.getMaxDepth();
+        if (maxDepth <= 0) {
+            return;
+        }
+        int depth = 0;
+        boolean inString = false;
+        boolean escaped = false;
+        for (int i = 0; i < json.length(); i++) {
+            char current = json.charAt(i);
+            if (inString) {
+                if (escaped) {
+                    escaped = false;
+                } else if (current == '\\') {
+                    escaped = true;
+                } else if (current == '"') {
+                    inString = false;
+                }
+                continue;
+            }
+            if (current == '"') {
+                inString = true;
+            } else if (current == '{' || current == '[') {
+                depth++;
+                if (depth > maxDepth) {
+                    throw new JsonCodecException(JsonCodecException.JSON_DEPTH_EXCEEDED,
+                            "JSON nesting depth exceeded limit: " + maxDepth);
+                }
+            } else if (current == '}' || current == ']') {
+                depth--;
+            }
         }
     }
 

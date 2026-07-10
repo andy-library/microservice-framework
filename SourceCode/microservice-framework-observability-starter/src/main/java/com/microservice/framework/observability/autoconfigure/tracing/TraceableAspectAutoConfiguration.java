@@ -11,6 +11,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -30,6 +31,7 @@ import java.lang.reflect.Method;
 public class TraceableAspectAutoConfiguration {
 
     @Configuration(proxyBeanMethods = false)
+    @ConditionalOnBean(Tracer.class)
     static class TraceableAspectConfiguration {
 
         @Bean
@@ -91,6 +93,9 @@ public class TraceableAspectAutoConfiguration {
             Traceable traceable = method.getAnnotation(Traceable.class);
             if (traceable != null && !traceable.name().isEmpty()) {
                 return traceable.name();
+            }
+            if (traceable != null && !traceable.value().isEmpty()) {
+                return traceable.value();
             }
 
             // 检查是否是 @Scheduled

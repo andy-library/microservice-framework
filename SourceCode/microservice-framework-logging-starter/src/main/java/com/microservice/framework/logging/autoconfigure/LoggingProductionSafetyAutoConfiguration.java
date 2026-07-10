@@ -7,6 +7,9 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.core.env.Environment;
 import org.springframework.core.env.Profiles;
+import ch.qos.logback.classic.Level;
+
+import java.util.regex.Pattern;
 
 /**
  * Logging production safety auto-configuration.
@@ -30,6 +33,7 @@ public class LoggingProductionSafetyAutoConfiguration {
             LoggingProperties properties,
             Environment environment) {
         return () -> {
+            validateConfiguration(properties);
             if (!environment.acceptsProfiles(Profiles.of("prod"))) {
                 return;
             }
@@ -37,6 +41,31 @@ public class LoggingProductionSafetyAutoConfiguration {
             validateFloodProtection(properties.getFloodProtection());
             validateMasking(properties.getMasking());
         };
+    }
+
+    private static void validateConfiguration(LoggingProperties properties) {
+        if (properties.getAsync().getQueueSize() < 1) {
+            throw new IllegalStateException("framework.logging.async.queue-size must be at least 1");
+        }
+        if (properties.getFloodProtection().getRate() < 1) {
+            throw new IllegalStateException("framework.logging.flood-protection.rate must be at least 1");
+        }
+        if (properties.getFloodProtection().getBurstCapacity() < 1) {
+            throw new IllegalStateException("framework.logging.flood-protection.burst-capacity must be at least 1");
+        }
+        properties.getMasking().getCustomRules().forEach(rule -> {
+            if (rule.getRegex() == null || rule.getRegex().isBlank()) {
+                throw new IllegalStateException("framework.logging.masking.custom-rules.regex must not be blank");
+            }
+            try {
+                Pattern.compile(rule.getRegex());
+            } catch (RuntimeException ex) {
+                throw new IllegalStateException("framework.logging.masking.custom-rules.regex is invalid", ex);
+            }
+        });
+        if (Level.toLevel(properties.getTraceSampling().getLevelForUnsampled(), null) == null) {
+            throw new IllegalStateException("framework.logging.trace-sampling.level-for-unsampled is invalid");
+        }
     }
 
     private static void validateAsync(LoggingProperties.AsyncProperties async) {

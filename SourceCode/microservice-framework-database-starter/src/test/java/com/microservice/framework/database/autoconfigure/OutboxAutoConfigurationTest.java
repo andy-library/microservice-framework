@@ -14,7 +14,6 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.mock;
 
 /**
  * OutboxAutoConfiguration tests.
@@ -148,7 +147,7 @@ class OutboxAutoConfigurationTest {
             properties.setAutoCreateTable(true);
             properties.setTableName("1bad_table");
             OutboxAutoConfiguration.JdbcOutboxPublisher publisher =
-                    new OutboxAutoConfiguration.JdbcOutboxPublisher(mock(JdbcTemplate.class), properties);
+                    new OutboxAutoConfiguration.JdbcOutboxPublisher(new JdbcTemplate(), properties);
 
             assertThatThrownBy(publisher::afterPropertiesSet)
                     .isInstanceOf(IllegalArgumentException.class)

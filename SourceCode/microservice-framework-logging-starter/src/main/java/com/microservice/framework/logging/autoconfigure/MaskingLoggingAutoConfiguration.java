@@ -2,6 +2,7 @@ package com.microservice.framework.logging.autoconfigure;
 
 import ch.qos.logback.classic.LoggerContext;
 import com.microservice.framework.logging.core.masking.PatternMaskingConverter;
+import com.microservice.framework.logging.core.masking.MaskingJsonGeneratorDecorator;
 import com.microservice.framework.logging.properties.LoggingProperties;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -12,6 +13,9 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * 数据脱敏自动配置
@@ -53,6 +57,22 @@ import org.springframework.context.annotation.Configuration;
 @EnableConfigurationProperties(LoggingProperties.class)
 @ConditionalOnProperty(prefix = "framework.logging.masking", name = "enabled", havingValue = "true")
 public class MaskingLoggingAutoConfiguration {
+
+    @Bean
+    @ConditionalOnMissingBean
+    public MaskingJsonGeneratorDecorator maskingJsonGeneratorDecorator(LoggingProperties properties) {
+        List<MaskingJsonGeneratorDecorator.CustomRule> rules = new ArrayList<>();
+        for (String rule : properties.getMasking().getEnabledDefaultRules()) {
+            if ("MOBILE_PHONE".equalsIgnoreCase(rule)) {
+                rules.add(new MaskingJsonGeneratorDecorator.CustomRule("MOBILE_PHONE", "(1[3-9]\\d{2})\\d{4}(\\d{4})", "$1****$2"));
+            } else if ("ID_CARD".equalsIgnoreCase(rule)) {
+                rules.add(new MaskingJsonGeneratorDecorator.CustomRule("ID_CARD", "(\\d{6})\\d{8}(\\d{4})", "$1********$2"));
+            }
+        }
+        MaskingJsonGeneratorDecorator decorator = new MaskingJsonGeneratorDecorator();
+        decorator.setCustomRules(rules);
+        return decorator;
+    }
 
     /**
      * 增强配置（支持 Spring Cloud 动态刷新）

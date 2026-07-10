@@ -71,7 +71,19 @@ public class PatternMaskingConverter extends ClassicConverter {
             return event.getFormattedMessage();
         }
 
-        String message = event.getFormattedMessage();
+        return mask(event.getFormattedMessage());
+    }
+
+    /**
+     * Masks an arbitrary structured value using the configured rule set.
+     *
+     * @param message value to mask
+     * @return masked value
+     */
+    public String mask(String message) {
+        if (!enabled) {
+            return message;
+        }
         if (message == null || message.isEmpty()) {
             return message;
         }

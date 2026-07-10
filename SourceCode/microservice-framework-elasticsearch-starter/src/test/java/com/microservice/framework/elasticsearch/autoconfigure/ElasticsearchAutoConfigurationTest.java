@@ -256,7 +256,7 @@ class ElasticsearchAutoConfigurationTest {
             properties.getQuery().setMaxSize(100);
             ElasticsearchAutoConfiguration.DefaultElasticsearchOperations operations =
                     new ElasticsearchAutoConfiguration.DefaultElasticsearchOperations(
-                            org.mockito.Mockito.mock(ElasticsearchTemplate.class), properties);
+                            null, properties);
 
             assertThatThrownBy(() -> operations.search("orders",
                     com.microservice.framework.elasticsearch.api.SearchQueryBuilder.create().size(101),
@@ -272,7 +272,7 @@ class ElasticsearchAutoConfigurationTest {
             properties.getQuery().setMaxSize(100);
             ElasticsearchAutoConfiguration.DefaultElasticsearchOperations operations =
                     new ElasticsearchAutoConfiguration.DefaultElasticsearchOperations(
-                            org.mockito.Mockito.mock(ElasticsearchTemplate.class), properties);
+                            null, properties);
 
             assertThatThrownBy(() -> operations.search("orders",
                     com.microservice.framework.elasticsearch.api.SearchQueryBuilder.create(),
@@ -289,7 +289,7 @@ class ElasticsearchAutoConfigurationTest {
             properties.getQuery().setMaxFromSize(100);
             ElasticsearchAutoConfiguration.DefaultElasticsearchOperations operations =
                     new ElasticsearchAutoConfiguration.DefaultElasticsearchOperations(
-                            org.mockito.Mockito.mock(ElasticsearchTemplate.class), properties);
+                            null, properties);
 
             assertThatThrownBy(() -> operations.search("orders",
                     com.microservice.framework.elasticsearch.api.SearchQueryBuilder.create(),

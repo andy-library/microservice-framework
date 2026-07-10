@@ -11,6 +11,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -31,6 +32,7 @@ import java.lang.reflect.Parameter;
 public class SpanTagAspectAutoConfiguration {
 
     @Configuration(proxyBeanMethods = false)
+    @ConditionalOnBean(Tracer.class)
     static class SpanTagAspectConfiguration {
 
         @Bean

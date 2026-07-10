@@ -30,6 +30,10 @@ public class TraceSampledFilter extends TurboFilter {
             return FilterReply.NEUTRAL;
         }
 
+        if (tracer == null) {
+            return FilterReply.NEUTRAL;
+        }
+
         // 获取当前 Span
         Span currentSpan = tracer.currentSpan();
 

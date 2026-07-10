@@ -46,13 +46,13 @@ class AuditAutoConfigurationTest {
     @DisplayName("自定义存储和留存配置应正确绑定")
     void customStorageAndRetentionPropertiesShouldBindCorrectly() {
         contextRunner.withPropertyValues(
-                "framework.audit.storage.type=DATABASE",
+                "framework.audit.storage.type=MEMORY",
                 "framework.audit.storage.async=false",
                 "framework.audit.retention.days=180")
                 .run(context -> {
                     assertThat(context).hasNotFailed();
                     AuditProperties properties = context.getBean(AuditProperties.class);
-                    assertThat(properties.getStorage().getType()).isEqualTo("DATABASE");
+                    assertThat(properties.getStorage().getType()).isEqualTo("MEMORY");
                     assertThat(properties.getStorage().getAsync()).isFalse();
                     assertThat(properties.getRetention().getDays()).isEqualTo(180);
                 });

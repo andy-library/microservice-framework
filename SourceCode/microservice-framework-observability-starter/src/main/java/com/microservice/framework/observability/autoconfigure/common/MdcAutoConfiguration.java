@@ -8,6 +8,7 @@ import io.micrometer.tracing.propagation.Propagator;
 import org.slf4j.MDC;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -19,6 +20,7 @@ import org.springframework.context.annotation.Configuration;
  */
 @AutoConfiguration
 @ConditionalOnClass({ Tracer.class, MDC.class })
+@ConditionalOnBean({ Tracer.class, Propagator.class })
 public class MdcAutoConfiguration {
 
     /**
@@ -36,6 +38,7 @@ public class MdcAutoConfiguration {
      * 通过 Micrometer 的 ObservationHandler 自动注入 MDC
      */
     @Configuration(proxyBeanMethods = false)
+    @ConditionalOnBean({ Tracer.class, Propagator.class })
     static class MdcObservationConfiguration {
 
         @Bean
@@ -68,6 +71,7 @@ public class MdcAutoConfiguration {
             if (currentSpan != null) {
                 MDC.put(MdcKeys.TRACE_ID, currentSpan.context().traceId());
                 MDC.put(MdcKeys.SPAN_ID, currentSpan.context().spanId());
+                MDC.put(MdcKeys.REQUEST_ID, currentSpan.context().traceId());
             }
         }
 
@@ -75,6 +79,7 @@ public class MdcAutoConfiguration {
         public void onStop(io.micrometer.observation.Observation.Context context) {
             MDC.remove(MdcKeys.TRACE_ID);
             MDC.remove(MdcKeys.SPAN_ID);
+            MDC.remove(MdcKeys.REQUEST_ID);
         }
 
         @Override

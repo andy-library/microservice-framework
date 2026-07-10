@@ -18,6 +18,11 @@ public final class MdcKeys {
     public static final String SPAN_ID = "spanId";
 
     /**
+     * 请求关联 ID。
+     */
+    public static final String REQUEST_ID = "requestId";
+
+    /**
      * 租户ID
      */
     public static final String TENANT_ID = "tenantId";

@@ -14,6 +14,14 @@ import java.lang.annotation.*;
 public @interface Traceable {
 
     /**
+     * Span 名称的简写形式，兼容 {@code @Traceable("name")}。
+     * 当 {@link #name()} 同时配置时，以 name 为准。
+     *
+     * @return Span 名称
+     */
+    String value() default "";
+
+    /**
      * Span 名称
      * 如果不指定，则使用方法名
      * 

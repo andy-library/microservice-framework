@@ -13,9 +13,8 @@ import static org.assertj.core.api.Assertions.assertThat;
  * <p>
  * 使用 ApplicationContextRunner 验证 ShardingSphere 配置的激活/禁用条件。
  * <p>
- * 注意：ShardingSphere-JDBC 不在测试 classpath 上（仅作为 optional 依赖引入），
- * 因此 {@code @ConditionalOnClass} 条件不满足，ShardingSphereAutoConfiguration
- * 不会实际创建 Bean。测试重点验证条件逻辑的语义正确性。
+ * database-starter 强制集成 ShardingSphere-JDBC，因此默认配置应创建配置骨架 Bean；
+ * 分库分表显式启用时由条件阻止该骨架配置，交由实际 ShardingSphere 配置接管。
  *
  * @author Andy Yang
  */
@@ -29,19 +28,17 @@ class ShardingSphereAutoConfigurationTest {
     class ConditionalActivation {
 
         @Test
-        @DisplayName("ShardingSphere-JDBC 不在 classpath 时 ShardingSphereAutoConfiguration 不应激活")
-        void withoutShardingSphereClassShouldNotActivate() {
-            // ShardingSphere-JDBC 作为 optional 依赖，不在测试 classpath 上
-            // 因此 @ConditionalOnClass 条件不满足
+        @DisplayName("默认配置应激活 ShardingSphere 配置骨架")
+        void defaultConfigurationShouldActivate() {
             contextRunner.run(context -> {
                 assertThat(context).hasNotFailed();
-                assertThat(context).doesNotHaveBean(ShardingSphereAutoConfiguration.class);
+                assertThat(context).hasSingleBean(ShardingSphereAutoConfiguration.class);
             });
         }
 
         @Test
-        @DisplayName("sharding.enabled=true 时仍因缺少 ShardingSphere 而不激活")
-        void shardingEnabledButMissingClasspathShouldNotActivate() {
+        @DisplayName("sharding.enabled=true 时配置骨架不应激活")
+        void shardingEnabledShouldNotActivateSkeleton() {
             contextRunner.withPropertyValues("framework.database.sharding.enabled=true")
                     .run(context -> {
                         assertThat(context).hasNotFailed();

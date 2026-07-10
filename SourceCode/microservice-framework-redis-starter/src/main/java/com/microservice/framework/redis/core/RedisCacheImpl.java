@@ -43,6 +43,7 @@ public class RedisCacheImpl implements RedisCache {
 
     @Override
     public <T> T get(String key) {
+        requireKey(key);
         String cacheKey = CACHE_PREFIX + key;
         Object value = redisTemplate.opsForValue().get(cacheKey);
         if (value == null) {
@@ -56,6 +57,8 @@ public class RedisCacheImpl implements RedisCache {
 
     @Override
     public <T> T get(String key, Class<T> type) {
+        requireKey(key);
+        Objects.requireNonNull(type, "type must not be null");
         String cacheKey = CACHE_PREFIX + key;
         Object value = redisTemplate.opsForValue().get(cacheKey);
         if (value == null) {
@@ -67,7 +70,8 @@ public class RedisCacheImpl implements RedisCache {
         if (type.isInstance(value)) {
             return type.cast(value);
         }
-        return (T) value;
+        throw new IllegalStateException("Cached value type mismatch: expected " + type.getName()
+                + " but was " + value.getClass().getName());
     }
 
     @Override
@@ -77,6 +81,10 @@ public class RedisCacheImpl implements RedisCache {
 
     @Override
     public void put(String key, Object value, long ttl) {
+        requireKey(key);
+        if (ttl <= 0) {
+            throw new IllegalArgumentException("TTL must be positive");
+        }
         String cacheKey = CACHE_PREFIX + key;
         if (value == null) {
             // null 值使用较短 TTL 防穿透
@@ -89,6 +97,7 @@ public class RedisCacheImpl implements RedisCache {
 
     @Override
     public boolean evict(String key) {
+        requireKey(key);
         String cacheKey = CACHE_PREFIX + key;
         return Boolean.TRUE.equals(redisTemplate.delete(cacheKey));
     }
@@ -98,8 +107,8 @@ public class RedisCacheImpl implements RedisCache {
         if (keys == null || keys.isEmpty()) {
             return;
         }
+        keys.forEach(this::requireKey);
         List<String> cacheKeys = keys.stream()
-                .filter(Objects::nonNull)
                 .map(key -> CACHE_PREFIX + key)
                 .toList();
         redisTemplate.delete(cacheKeys);
@@ -108,7 +117,10 @@ public class RedisCacheImpl implements RedisCache {
     @Override
     public long evictByPattern(String pattern) {
         if (pattern == null || pattern.isBlank()) {
-            return 0L;
+            throw new IllegalArgumentException("pattern must not be blank");
+        }
+        if ("*".equals(pattern) || "**".equals(pattern)) {
+            throw new IllegalArgumentException("global wildcard pattern is not allowed");
         }
         List<String> keys = new ArrayList<>();
         ScanOptions options = ScanOptions.scanOptions()
@@ -123,5 +135,11 @@ public class RedisCacheImpl implements RedisCache {
         }
         Long deleted = redisTemplate.delete(keys);
         return deleted == null ? 0L : deleted;
+    }
+
+    private void requireKey(String key) {
+        if (key == null || key.isBlank()) {
+            throw new IllegalArgumentException("key must not be blank");
+        }
     }
 }

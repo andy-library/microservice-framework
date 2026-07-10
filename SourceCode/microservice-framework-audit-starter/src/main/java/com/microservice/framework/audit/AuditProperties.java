@@ -84,8 +84,8 @@ public class AuditProperties {
          * <p>
          * 支持的存储类型：
          * - MEMORY：内存存储（仅用于开发和测试）
-         * - DATABASE：数据库存储（生产环境推荐）
-         * - FILE：文件存储
+         * - JDBC：数据库存储（生产环境推荐）
+         * - DATABASE：JDBC 的兼容别名
          */
         @NotBlank
         private String type = "MEMORY";
@@ -97,6 +97,17 @@ public class AuditProperties {
          * 不阻塞业务线程，但可能存在短暂延迟。
          */
         private Boolean async = true;
+
+        /**
+         * 是否自动创建 JDBC 审计表。生产环境禁止启用，应交由迁移工具管理。
+         */
+        private Boolean autoCreateTable = false;
+
+        /**
+         * JDBC 审计表名，仅允许字母、数字和下划线。
+         */
+        @NotBlank
+        private String tableName = "framework_audit_event";
 
         // Getters and Setters
 
@@ -114,6 +125,22 @@ public class AuditProperties {
 
         public void setAsync(Boolean async) {
             this.async = async;
+        }
+
+        public Boolean getAutoCreateTable() {
+            return autoCreateTable;
+        }
+
+        public void setAutoCreateTable(Boolean autoCreateTable) {
+            this.autoCreateTable = autoCreateTable;
+        }
+
+        public String getTableName() {
+            return tableName;
+        }
+
+        public void setTableName(String tableName) {
+            this.tableName = tableName;
         }
     }
 

@@ -60,6 +60,7 @@ public class RedisCounterImpl implements RedisCounter {
 
     @Override
     public long increment(String key, long delta) {
+        requirePositiveDelta(delta);
         String counterKey = COUNTER_PREFIX + key;
         return redisTemplate.opsForValue().increment(counterKey, delta);
     }
@@ -71,6 +72,7 @@ public class RedisCounterImpl implements RedisCounter {
 
     @Override
     public long decrement(String key, long delta) {
+        requirePositiveDelta(delta);
         String counterKey = COUNTER_PREFIX + key;
         return redisTemplate.opsForValue().increment(counterKey, -delta);
     }
@@ -98,5 +100,11 @@ public class RedisCounterImpl implements RedisCounter {
         Long previous = redisTemplate.execute(getAndIncrementScript,
                 Collections.singletonList(counterKey));
         return previous != null ? previous : 0L;
+    }
+
+    private void requirePositiveDelta(long delta) {
+        if (delta <= 0) {
+            throw new IllegalArgumentException("delta must be positive");
+        }
     }
 }

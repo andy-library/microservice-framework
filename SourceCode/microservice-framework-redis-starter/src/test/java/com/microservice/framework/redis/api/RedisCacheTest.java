@@ -112,5 +112,17 @@ class RedisCacheTest {
             this.storedValue = null;
             return true;
         }
+
+        @Override
+        public void evictAll(java.util.List<String> keys) {
+            this.storedValue = null;
+        }
+
+        @Override
+        public long evictByPattern(String pattern) {
+            boolean existed = storedValue != null;
+            this.storedValue = null;
+            return existed ? 1 : 0;
+        }
     }
 }

@@ -11,6 +11,7 @@ import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -49,6 +50,7 @@ public class KafkaAutoConfiguration {
      */
     @Bean
     @ConditionalOnClass(KafkaTemplate.class)
+    @ConditionalOnBean(KafkaTemplate.class)
     @ConditionalOnMissingBean(KafkaPublisher.class)
     public KafkaPublisher<Object> kafkaPublisher(ObjectProvider<KafkaTemplate<Object, Object>> kafkaTemplateProvider) {
         return new DefaultKafkaPublisher(kafkaTemplateProvider);

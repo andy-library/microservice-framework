@@ -38,9 +38,9 @@ class ApolloAutoConfigurationTest {
         void defaultConfigurationShouldLoadGovernanceBeans() {
             contextRunner.run(context -> {
                 assertThat(context).hasNotFailed();
-                assertThat(context).hasBean("defaultConfigValidator");
-                assertThat(context).hasBean("defaultRefreshPolicy");
-                assertThat(context).hasBean("defaultSensitiveConfigMasker");
+                assertThat(context).hasBean("apolloConfigValidator");
+                assertThat(context).hasBean("apolloRefreshPolicy");
+                assertThat(context).hasBean("apolloSensitiveConfigMasker");
             });
         }
 
@@ -73,7 +73,7 @@ class ApolloAutoConfigurationTest {
 
         @Test
         @DisplayName("默认 RefreshPolicy 应为 ON_CHANGE 策略")
-        void defaultRefreshPolicyShouldBeOnChange() {
+        void apolloRefreshPolicyShouldBeOnChange() {
             contextRunner.run(context -> {
                 assertThat(context).hasNotFailed();
                 RefreshPolicy policy = context.getBean(RefreshPolicy.class);
@@ -84,7 +84,7 @@ class ApolloAutoConfigurationTest {
 
         @Test
         @DisplayName("默认 SensitiveConfigMasker 应包含标准敏感键模式")
-        void defaultSensitiveConfigMaskerShouldContainStandardPatterns() {
+        void apolloSensitiveConfigMaskerShouldContainStandardPatterns() {
             contextRunner.run(context -> {
                 assertThat(context).hasNotFailed();
                 SensitiveConfigMasker masker = context.getBean(SensitiveConfigMasker.class);
@@ -126,9 +126,9 @@ class ApolloAutoConfigurationTest {
             contextRunner.withPropertyValues("framework.config.enabled=false")
                     .run(context -> {
                         assertThat(context).hasNotFailed();
-                        assertThat(context).doesNotHaveBean("defaultConfigValidator");
-                        assertThat(context).doesNotHaveBean("defaultRefreshPolicy");
-                        assertThat(context).doesNotHaveBean("defaultSensitiveConfigMasker");
+                        assertThat(context).doesNotHaveBean("apolloConfigValidator");
+                        assertThat(context).doesNotHaveBean("apolloRefreshPolicy");
+                        assertThat(context).doesNotHaveBean("apolloSensitiveConfigMasker");
                         assertThat(context).doesNotHaveBean(ConfigValidator.class);
                         assertThat(context).doesNotHaveBean(RefreshPolicy.class);
                         assertThat(context).doesNotHaveBean(SensitiveConfigMasker.class);
@@ -141,10 +141,10 @@ class ApolloAutoConfigurationTest {
             contextRunner.withPropertyValues("framework.config.validator.enabled=false")
                     .run(context -> {
                         assertThat(context).hasNotFailed();
-                        assertThat(context).doesNotHaveBean("defaultConfigValidator");
+                        assertThat(context).doesNotHaveBean("apolloConfigValidator");
                         assertThat(context).doesNotHaveBean(ConfigValidator.class);
-                        assertThat(context).hasBean("defaultRefreshPolicy");
-                        assertThat(context).hasBean("defaultSensitiveConfigMasker");
+                        assertThat(context).hasBean("apolloRefreshPolicy");
+                        assertThat(context).hasBean("apolloSensitiveConfigMasker");
                     });
         }
 
@@ -154,10 +154,10 @@ class ApolloAutoConfigurationTest {
             contextRunner.withPropertyValues("framework.config.refresh-policy.enabled=false")
                     .run(context -> {
                         assertThat(context).hasNotFailed();
-                        assertThat(context).doesNotHaveBean("defaultRefreshPolicy");
+                        assertThat(context).doesNotHaveBean("apolloRefreshPolicy");
                         assertThat(context).doesNotHaveBean(RefreshPolicy.class);
-                        assertThat(context).hasBean("defaultConfigValidator");
-                        assertThat(context).hasBean("defaultSensitiveConfigMasker");
+                        assertThat(context).hasBean("apolloConfigValidator");
+                        assertThat(context).hasBean("apolloSensitiveConfigMasker");
                     });
         }
 
@@ -167,10 +167,10 @@ class ApolloAutoConfigurationTest {
             contextRunner.withPropertyValues("framework.config.masking.enabled=false")
                     .run(context -> {
                         assertThat(context).hasNotFailed();
-                        assertThat(context).doesNotHaveBean("defaultSensitiveConfigMasker");
+                        assertThat(context).doesNotHaveBean("apolloSensitiveConfigMasker");
                         assertThat(context).doesNotHaveBean(SensitiveConfigMasker.class);
-                        assertThat(context).hasBean("defaultConfigValidator");
-                        assertThat(context).hasBean("defaultRefreshPolicy");
+                        assertThat(context).hasBean("apolloConfigValidator");
+                        assertThat(context).hasBean("apolloRefreshPolicy");
                     });
         }
     }
@@ -259,7 +259,7 @@ class ApolloAutoConfigurationTest {
                     .run(context -> {
                         assertThat(context).hasNotFailed();
                         assertThat(context).hasBean("customConfigValidator");
-                        assertThat(context).doesNotHaveBean("defaultConfigValidator");
+                        assertThat(context).doesNotHaveBean("apolloConfigValidator");
                         assertThat(context.getBean(ConfigValidator.class)).isEqualTo(customValidator);
                     });
         }
@@ -272,7 +272,7 @@ class ApolloAutoConfigurationTest {
                     .run(context -> {
                         assertThat(context).hasNotFailed();
                         assertThat(context).hasBean("customRefreshPolicy");
-                        assertThat(context).doesNotHaveBean("defaultRefreshPolicy");
+                        assertThat(context).doesNotHaveBean("apolloRefreshPolicy");
                         assertThat(context.getBean(RefreshPolicy.class)).isEqualTo(customPolicy);
                     });
         }
@@ -286,7 +286,7 @@ class ApolloAutoConfigurationTest {
                     .run(context -> {
                         assertThat(context).hasNotFailed();
                         assertThat(context).hasBean("customSensitiveConfigMasker");
-                        assertThat(context).doesNotHaveBean("defaultSensitiveConfigMasker");
+                        assertThat(context).doesNotHaveBean("apolloSensitiveConfigMasker");
                         assertThat(context.getBean(SensitiveConfigMasker.class)).isEqualTo(customMasker);
                     });
         }

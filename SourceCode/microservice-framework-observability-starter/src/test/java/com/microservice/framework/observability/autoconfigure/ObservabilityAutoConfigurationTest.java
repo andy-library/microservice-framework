@@ -11,6 +11,7 @@ import org.springframework.boot.WebApplicationType;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 class ObservabilityAutoConfigurationTest {

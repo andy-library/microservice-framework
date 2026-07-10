@@ -1,6 +1,8 @@
 package com.microservice.framework.observability;
 
+import jakarta.validation.constraints.NotBlank;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.validation.annotation.Validated;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -11,6 +13,7 @@ import java.util.List;
  * @author Andy Yang
  */
 @ConfigurationProperties(prefix = "framework.observability")
+@Validated
 public class ObservabilityProperties {
 
     /**
@@ -51,7 +54,7 @@ public class ObservabilityProperties {
         /**
          * 需要自动传播的 Baggage 键列表
          */
-        private List<String> baggageKeys = new ArrayList<>();
+        private List<@NotBlank String> baggageKeys = new ArrayList<>();
 
         public boolean isEnabled() {
             return enabled;

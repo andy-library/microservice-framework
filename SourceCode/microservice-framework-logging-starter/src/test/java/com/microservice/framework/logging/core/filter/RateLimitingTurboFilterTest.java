@@ -155,6 +155,36 @@ class RateLimitingTurboFilterTest {
     }
 
     @Test
+    @DisplayName("配置增大突发容量后应立即获得完整首波令牌")
+    void testConfigChange_BurstCapacity_Grow() {
+        filter.setBurstCapacity(200);
+
+        int passedCount = 0;
+        for (int i = 0; i < 250; i++) {
+            if (filter.decide(null, testLogger, Level.INFO, "test", null, null) == FilterReply.NEUTRAL) {
+                passedCount++;
+            }
+        }
+
+        assertEquals(200, passedCount);
+    }
+
+    @Test
+    @DisplayName("重新启动过滤器应恢复完整突发令牌")
+    void startShouldRestoreBurstCapacityTokens() {
+        filter.setBurstCapacity(2);
+        filter.setRate(0);
+        filter.decide(null, testLogger, Level.INFO, "test", null, null);
+        filter.decide(null, testLogger, Level.INFO, "test", null, null);
+        assertEquals(FilterReply.DENY, filter.decide(null, testLogger, Level.INFO, "test", null, null));
+
+        filter.start();
+
+        assertEquals(FilterReply.NEUTRAL, filter.decide(null, testLogger, Level.INFO, "test", null, null));
+        assertEquals(FilterReply.NEUTRAL, filter.decide(null, testLogger, Level.INFO, "test", null, null));
+    }
+
+    @Test
     @DisplayName("配置变更: 动态启用/禁用")
     void testConfigChange_Enable() {
         filter.setEnabled(false);

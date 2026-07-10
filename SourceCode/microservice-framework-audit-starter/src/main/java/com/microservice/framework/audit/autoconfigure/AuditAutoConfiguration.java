@@ -11,6 +11,10 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
+import org.springframework.beans.factory.SmartInitializingSingleton;
+import org.springframework.core.env.Environment;
+import org.springframework.core.env.Profiles;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -45,8 +49,49 @@ public class AuditAutoConfiguration {
      */
     @Bean
     @ConditionalOnMissingBean(AuditRecorder.class)
+    @ConditionalOnProperty(prefix = "framework.audit.storage", name = "type", havingValue = "JDBC")
+    public AuditRecorder jdbcAuditRecorder(JdbcTemplate jdbcTemplate, AuditProperties properties) {
+        return new JdbcAuditRecorder(jdbcTemplate, properties);
+    }
+
+    /**
+     * 保持历史 DATABASE 配置与 JDBC 存储实现兼容。
+     */
+    @Bean
+    @ConditionalOnMissingBean(AuditRecorder.class)
+    @ConditionalOnProperty(prefix = "framework.audit.storage", name = "type", havingValue = "DATABASE")
+    public AuditRecorder databaseAuditRecorder(JdbcTemplate jdbcTemplate, AuditProperties properties) {
+        return new JdbcAuditRecorder(jdbcTemplate, properties);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(AuditRecorder.class)
+    @ConditionalOnProperty(prefix = "framework.audit.storage", name = "type", havingValue = "MEMORY", matchIfMissing = true)
     public AuditRecorder auditRecorder(AuditProperties properties) {
         return new InMemoryAuditRecorder(properties);
+    }
+
+    /**
+     * 阻止不受支持的存储类型和生产环境中的危险建表行为。
+     */
+    @Bean
+    public SmartInitializingSingleton auditProductionSafetyValidator(AuditProperties properties, Environment environment) {
+        return () -> {
+            String storageType = properties.getStorage().getType();
+            if (!"MEMORY".equals(storageType) && !"JDBC".equals(storageType) && !"DATABASE".equals(storageType)) {
+                throw new IllegalStateException("framework.audit.storage.type must be MEMORY, JDBC, or DATABASE");
+            }
+            if (!environment.acceptsProfiles(Profiles.of("prod"))) {
+                return;
+            }
+            if ("MEMORY".equals(storageType)) {
+                throw new IllegalStateException("framework.audit.storage.type=MEMORY is not allowed in prod profile");
+            }
+            if (Boolean.TRUE.equals(properties.getStorage().getAutoCreateTable())) {
+                throw new IllegalStateException(
+                        "framework.audit.storage.auto-create-table cannot be enabled in prod profile");
+            }
+        };
     }
 
     // ========================================================================

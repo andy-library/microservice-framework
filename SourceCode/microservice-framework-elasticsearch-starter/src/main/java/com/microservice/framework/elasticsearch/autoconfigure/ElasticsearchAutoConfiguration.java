@@ -229,8 +229,9 @@ public class ElasticsearchAutoConfiguration {
 
         @Override
         public <T> List<T> search(String indexName, SearchQueryBuilder builder, Class<T> clazz) {
-            requireTemplate();
             validateSearchArguments(indexName, builder, clazz);
+            validateBuilderGovernance(builder);
+            requireTemplate();
             org.springframework.data.elasticsearch.core.query.Query query = buildQuery(builder);
             org.springframework.data.elasticsearch.core.SearchHits<T> searchHits =
                     elasticsearchTemplate.search(query, clazz, IndexCoordinates.of(indexName));
@@ -242,12 +243,13 @@ public class ElasticsearchAutoConfiguration {
         @Override
         public <T> List<T> search(String indexName, SearchQueryBuilder builder,
                                   org.springframework.data.domain.Pageable pageable, Class<T> clazz) {
-            requireTemplate();
             validateSearchArguments(indexName, builder, clazz);
             if (pageable == null) {
                 throw new IllegalArgumentException("pageable must not be null");
             }
             validatePageable(pageable);
+            validateBuilderGovernance(builder);
+            requireTemplate();
             org.springframework.data.elasticsearch.core.query.Query query =
                     buildQuery(builder).setPageable(pageable);
             org.springframework.data.elasticsearch.core.SearchHits<T> searchHits =
@@ -496,6 +498,11 @@ public class ElasticsearchAutoConfiguration {
             if (clazz == null) {
                 throw new IllegalArgumentException("clazz must not be null");
             }
+        }
+
+        private void validateBuilderGovernance(SearchQueryBuilder builder) {
+            builder.validateSize(properties.getQuery().getMaxSize());
+            builder.validateFromSize(properties.getQuery().getMaxFromSize());
         }
 
         private void validateName(String value, String fieldName) {

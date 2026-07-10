@@ -40,7 +40,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
         "framework.logging.masking.enabled=true",
         "framework.logging.flood-protection.enabled=true",
-        "app.demo.job.rate=1000"
+        "app.demo.job.rate=60000"
 })
 public class FrameworkVerificationTest {
 

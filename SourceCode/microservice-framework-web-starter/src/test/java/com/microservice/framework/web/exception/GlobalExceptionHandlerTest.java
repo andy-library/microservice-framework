@@ -15,13 +15,16 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.core.MethodParameter;
 import org.springframework.validation.BindingResult;
+import org.springframework.validation.BeanPropertyBindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.lang.reflect.Method;
 import java.util.Map;
 import java.util.Set;
 
@@ -150,14 +153,13 @@ class GlobalExceptionHandlerTest {
 
         @Test
         @DisplayName("MethodArgumentNotValidException 应返回 400 和字段错误")
-        void handleMethodArgumentNotValid() {
-            BindingResult bindingResult = mock(BindingResult.class);
-            when(bindingResult.getFieldErrors()).thenReturn(List.of(
-                    new FieldError("obj", "email", "must be a valid email"),
-                    new FieldError("obj", "name", "must not be blank")
-            ));
-            MethodArgumentNotValidException ex = mock(MethodArgumentNotValidException.class);
-            when(ex.getBindingResult()).thenReturn(bindingResult);
+        void handleMethodArgumentNotValid() throws NoSuchMethodException {
+            BindingResult bindingResult = new BeanPropertyBindingResult(new Object(), "obj");
+            bindingResult.addError(new FieldError("obj", "email", "must be a valid email"));
+            bindingResult.addError(new FieldError("obj", "name", "must not be blank"));
+            Method method = GlobalExceptionHandlerTest.class.getDeclaredMethod("validationTarget", String.class);
+            MethodArgumentNotValidException ex = new MethodArgumentNotValidException(
+                    new MethodParameter(method, 0), bindingResult);
 
             ResponseEntity<ErrorCodeResponse> result = handler.handleMethodArgumentNotValid(ex, request);
 
@@ -168,6 +170,10 @@ class GlobalExceptionHandlerTest {
             assertThat(body.getDetails()).containsEntry("email", "must be a valid email");
             assertThat(body.getDetails()).containsEntry("name", "must not be blank");
         }
+    }
+
+    @SuppressWarnings("unused")
+    private static void validationTarget(String value) {
     }
 
     // ======================================================================
