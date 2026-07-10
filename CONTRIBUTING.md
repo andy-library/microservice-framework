@@ -24,27 +24,40 @@ Thank you for helping improve Microservice Framework. The project is designed as
 Install the parent and BOM first:
 
 ```bash
-cd Microservice/SourceCode/microservice-framework-parent
+cd SourceCode/microservice-framework-parent
 mvn clean install
 ```
 
 Then verify the changed starter:
 
 ```bash
-cd Microservice/SourceCode/<changed-module>
+cd SourceCode/<changed-module>
 mvn clean verify
 ```
 
 For demo-level verification:
 
 ```bash
-cd "Microservice/Microservice Demo/SourceCode/microservice-framework-demo"
+cd "Microservice Demo/SourceCode/microservice-framework-demo"
 mvn clean verify
 ```
+
+## Pull Request Security Rules
+
+To protect the project from malicious or unsafe pull requests:
+
+1. All pull requests must be reviewed by the repository owner or a trusted maintainer.
+2. Changes to workflows, build scripts, parent POMs, BOMs, security code, release notes, and repository governance files require extra attention.
+3. Pull requests from forks must not receive write tokens or repository secrets.
+4. Do not use `pull_request_target` workflows for untrusted code execution.
+5. CI must run with read-only permissions unless a specific trusted release workflow requires more.
+6. Maintainers should review dependency changes carefully before merging.
+7. Suspicious generated files, binary files, minified files, encoded payloads, and unexpected executable permissions should be rejected unless clearly justified.
 
 ## Pull Request Checklist
 
 - The change is scoped to one clear purpose.
+- The change does not weaken branch protection, CI permissions, CODEOWNERS, security policy, or release governance.
 - Maven verification passes for the changed module.
 - Demo verification is updated when the public application-facing behavior changes.
 - Documentation is updated when user-facing behavior changes.

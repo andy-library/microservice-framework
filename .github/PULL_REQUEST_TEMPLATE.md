@@ -30,3 +30,5 @@ mvn clean verify
 - [ ] Documentation was updated when public behavior changed.
 - [ ] No credentials, private URLs, company-specific names, generated artifacts, or local files are included.
 - [ ] Starter boundaries and framework governance rules are preserved.
+- [ ] The change does not weaken CI permissions, CODEOWNERS, branch protection guidance, or repository security policy.
+- [ ] Changes to GitHub Actions, build scripts, parent POMs, BOMs, security modules, or release files are explicitly called out for maintainer review.

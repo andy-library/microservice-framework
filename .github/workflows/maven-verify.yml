@@ -1,5 +1,8 @@
 name: Maven Verify
 
+permissions:
+  contents: read
+
 on:
   push:
     branches:
@@ -14,6 +17,11 @@ jobs:
   verify:
     name: Verify Parent, Starters, And Demo
     runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    concurrency:
+      group: maven-verify-${{ github.ref }}
+      cancel-in-progress: true
 
     steps:
       - name: Checkout

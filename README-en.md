@@ -193,6 +193,8 @@ mvn clean verify
 - See `CONTRIBUTING.md` for contribution guidelines.
 - See `SECURITY.md` for vulnerability reporting.
 - See `ROADMAP.md` for the project roadmap.
+- See `RELEASE_GUIDE.md` for release publishing.
+- See `.github/REPOSITORY_SECURITY_SETTINGS.md` for pull request and branch protection recommendations.
 
 ## Community
 

@@ -1,0 +1,34 @@
+name: Pull Request Metadata Check
+
+permissions:
+  contents: read
+  pull-requests: read
+
+on:
+  pull_request:
+    branches:
+      - main
+      - master
+
+jobs:
+  metadata:
+    name: Check Pull Request Metadata
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Check title length
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          if [ "${#PR_TITLE}" -lt 10 ]; then
+            echo "Pull request title should describe the change clearly."
+            exit 1
+          fi
+
+      - name: Warn on sensitive paths
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          echo "Pull request title: ${PR_TITLE}"
+          echo "Security-sensitive paths are governed by CODEOWNERS and branch protection."

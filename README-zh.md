@@ -193,6 +193,8 @@ mvn clean verify
 - 贡献指南见 `CONTRIBUTING.md`。
 - 安全漏洞披露见 `SECURITY.md`。
 - 项目路线图见 `ROADMAP.md`。
+- 发布流程见 `RELEASE_GUIDE.md`。
+- 仓库 PR 与分支保护建议见 `.github/REPOSITORY_SECURITY_SETTINGS.md`。
 
 ## 社区共建
 

@@ -1,0 +1,30 @@
+# Code Owners
+#
+# Author: Andy Yang
+#
+# CODEOWNERS is used with GitHub branch protection to require maintainer review
+# before pull requests can be merged.
+
+* @andy-library
+
+# Repository governance and release files require owner review.
+/.github/ @andy-library
+/CONTRIBUTING.md @andy-library
+/CODE_OF_CONDUCT.md @andy-library
+/SECURITY.md @andy-library
+/CHANGELOG.md @andy-library
+/ROADMAP.md @andy-library
+/RELEASE_NOTES_v0.1.0-alpha.md @andy-library
+/GITHUB_TOPICS.md @andy-library
+/LICENSE @andy-library
+
+# Build governance.
+/SourceCode/microservice-framework-parent/ @andy-library
+
+# Security-sensitive starters.
+/SourceCode/microservice-framework-security-starter/ @andy-library
+/SourceCode/microservice-framework-field-encryption-starter/ @andy-library
+/SourceCode/microservice-framework-audit-starter/ @andy-library
+
+# Demo and performance material.
+/Microservice Demo/ @andy-library
