@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!-- ========================================================================
+         父POM继承
+         说明：继承 microservice-framework-parent（非 starter-parent）
+         原因：drools-starter 是框架内部组件，不是业务应用
+         ======================================================================== -->
+    <parent>
+        <groupId>com.microservice.framework</groupId>
+        <artifactId>microservice-framework-parent</artifactId>
+        <version>${revision}</version>
+        <relativePath>../microservice-framework-parent/pom.xml</relativePath>
+    </parent>
+
+    <!-- ========================================================================
+         项目基本信息
+         ======================================================================== -->
+    <artifactId>microservice-framework-drools-starter</artifactId>
+    <packaging>jar</packaging>
+
+    <name>Microservice Framework Drools Starter</name>
+    <description>Drools Starter - 提供规则引擎加载、执行、版本管理和运行治理抽象</description>
+
+    <!-- ========================================================================
+         依赖管理
+         说明：导入 BOM 以获取内部组件和第三方库的版本管理
+         ======================================================================== -->
+    <dependencyManagement>
+        <dependencies>
+            <!-- 导入框架 BOM，获取内部组件版本 -->
+            <dependency>
+                <groupId>com.microservice.framework</groupId>
+                <artifactId>microservice-framework-bom</artifactId>
+                <version>${project.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <!-- 导入第三方依赖 BOM -->
+            <dependency>
+                <groupId>com.microservice.framework</groupId>
+                <artifactId>microservice-framework-dependencies</artifactId>
+                <version>${project.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <!-- ========================================================================
+         依赖声明
+         说明：所有依赖版本由 BOM 统一管理
+         ======================================================================== -->
+    <dependencies>
+        <!-- ====================================================================
+             Common Starter（强制依赖）
+             作用：提供 FrameworkContext、错误码、分页等基础设施
+             版本：由 microservice-framework-bom 管理
+             ==================================================================== -->
+        <dependency>
+            <groupId>com.microservice.framework</groupId>
+            <artifactId>microservice-framework-common-starter</artifactId>
+        </dependency>
+
+        <!-- ====================================================================
+             JSON Starter（可选依赖）
+             作用：提供 JSON 序列化能力，用于规则事实对象的序列化
+             版本：由 microservice-framework-bom 管理
+             ==================================================================== -->
+        <dependency>
+            <groupId>com.microservice.framework</groupId>
+            <artifactId>microservice-framework-json-starter</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- ====================================================================
+             Drools Core（可选依赖）
+             作用：提供 Drools 规则引擎核心运行时
+             可选：仅在应用需要实际执行规则时引入，避免强制拉入重依赖
+             版本：由 microservice-framework-dependencies BOM（通过 Drools BOM）管理
+             ==================================================================== -->
+        <dependency>
+            <groupId>org.drools</groupId>
+            <artifactId>drools-core</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- ====================================================================
+             Drools Compiler（可选依赖）
+             作用：提供 Drools 规则编译能力（DRL 解析和编译）
+             可选：仅在应用需要动态编译规则时引入
+             版本：由 microservice-framework-dependencies BOM（通过 Drools BOM）管理
+             ==================================================================== -->
+        <dependency>
+            <groupId>org.drools</groupId>
+            <artifactId>drools-compiler</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- ====================================================================
+             Spring Boot Starter（强制依赖）
+             作用：提供 Spring Boot 核心自动配置能力
+             版本：由 spring-boot-dependencies 管理
+             ==================================================================== -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter</artifactId>
+        </dependency>
+
+        <!-- ====================================================================
+             Spring Boot Validation Starter
+             作用：启用 @ConfigurationProperties 参数校验，启动期拦截非法规则治理配置
+             版本：由 spring-boot-dependencies 管理
+             ==================================================================== -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+
+        <!-- ====================================================================
+             Spring Boot Configuration Processor
+             作用：生成配置元数据，支持 IDE 自动补全
+             可选：仅在开发时需要
+             ==================================================================== -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-configuration-processor</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- ====================================================================
+             Test Dependencies
+             ==================================================================== -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>

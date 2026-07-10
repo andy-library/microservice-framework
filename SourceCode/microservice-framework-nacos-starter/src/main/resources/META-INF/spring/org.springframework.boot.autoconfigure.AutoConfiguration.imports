@@ -1,0 +1,5 @@
+com.microservice.framework.nacos.autoconfigure.NacosProductionSafetyAutoConfiguration
+com.microservice.framework.nacos.autoconfigure.NacosConfigAutoConfiguration
+com.microservice.framework.nacos.autoconfigure.KubernetesConfigAutoConfiguration
+com.microservice.framework.nacos.autoconfigure.ConfigGovernanceAutoConfiguration
+com.microservice.framework.nacos.autoconfigure.ConfigCenterMutualExclusionAutoConfiguration

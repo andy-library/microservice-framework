@@ -1,0 +1,328 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.3">
+  <hashTree>
+    <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="Microservice Framework Starter API Smoke" enabled="true">
+      <stringProp name="TestPlan.comments">Smoke verification for all application-facing /test/{starter} APIs before JMeter load testing.</stringProp>
+      <boolProp name="TestPlan.functional_mode">false</boolProp>
+      <boolProp name="TestPlan.tearDown_on_shutdown">true</boolProp>
+      <boolProp name="TestPlan.serialize_threadgroups">true</boolProp>
+      <elementProp name="TestPlan.user_defined_variables" elementType="Arguments" guiclass="ArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true">
+        <collectionProp name="Arguments.arguments">
+          <elementProp name="protocol" elementType="Argument">
+            <stringProp name="Argument.name">protocol</stringProp>
+            <stringProp name="Argument.value">${__P(protocol,http)}</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="host" elementType="Argument">
+            <stringProp name="Argument.name">host</stringProp>
+            <stringProp name="Argument.value">${__P(host,127.0.0.1)}</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="port" elementType="Argument">
+            <stringProp name="Argument.name">port</stringProp>
+            <stringProp name="Argument.value">${__P(port,8080)}</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+        </collectionProp>
+      </elementProp>
+    </TestPlan>
+    <hashTree>
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="starter-api-smoke-thread-group" enabled="true">
+        <stringProp name="ThreadGroup.on_sample_error">stoptest</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller" enabled="true">
+          <boolProp name="LoopController.continue_forever">false</boolProp>
+          <stringProp name="LoopController.loops">1</stringProp>
+        </elementProp>
+        <stringProp name="ThreadGroup.num_threads">1</stringProp>
+        <stringProp name="ThreadGroup.ramp_time">1</stringProp>
+        <boolProp name="ThreadGroup.scheduler">false</boolProp>
+      </ThreadGroup>
+      <hashTree>
+        <JSR223Sampler guiclass="TestBeanGUI" testclass="JSR223Sampler" testname="All Starter /test API Smoke Runner" enabled="true">
+          <stringProp name="cacheKey">starter-api-smoke-runner</stringProp>
+          <stringProp name="filename"></stringProp>
+          <stringProp name="parameters"></stringProp>
+          <stringProp name="scriptLanguage">groovy</stringProp>
+          <stringProp name="script"><![CDATA[
+import groovy.json.JsonOutput
+import groovy.json.JsonSlurper
+
+import java.net.URI
+import java.net.URLEncoder
+import java.net.http.HttpClient
+import java.net.http.HttpRequest
+import java.net.http.HttpResponse
+import java.nio.charset.StandardCharsets
+import java.time.Duration
+
+def protocol = vars.get("protocol")
+def host = vars.get("host")
+def port = vars.get("port")
+def baseUrl = "${protocol}://${host}:${port}"
+def runId = UUID.randomUUID().toString().replace("-", "")
+def json = new JsonSlurper()
+def client = HttpClient.newBuilder()
+        .connectTimeout(Duration.ofSeconds(5))
+        .followRedirects(HttpClient.Redirect.NORMAL)
+        .build()
+def records = []
+
+def toJsonBody = { Object body ->
+    if (body == null) {
+        return ""
+    }
+    if (body instanceof String) {
+        return body
+    }
+    JsonOutput.toJson(body)
+}
+
+def encoded = { String value ->
+    URLEncoder.encode(value, StandardCharsets.UTF_8).replace("+", "%20")
+}
+
+def request = { String name, String method, String path, Object body = null, List<Integer> expectedStatuses = [200], Closure extraCheck = null ->
+    long start = System.nanoTime()
+    String requestBody = toJsonBody(body)
+    HttpRequest.Builder builder = HttpRequest.newBuilder()
+            .uri(URI.create(baseUrl + path))
+            .timeout(Duration.ofSeconds(20))
+            .header("X-Request-ID", "jmeter-${runId}")
+            .header("user-id", "jmeter-user-${runId}")
+            .header("tenant-id", "tenant-demo")
+            .header("Content-Type", "application/json")
+
+    if ("GET".equalsIgnoreCase(method)) {
+        builder.GET()
+    } else if ("POST".equalsIgnoreCase(method)) {
+        builder.POST(HttpRequest.BodyPublishers.ofString(requestBody, StandardCharsets.UTF_8))
+    } else if ("PUT".equalsIgnoreCase(method)) {
+        builder.PUT(HttpRequest.BodyPublishers.ofString(requestBody, StandardCharsets.UTF_8))
+    } else if ("DELETE".equalsIgnoreCase(method)) {
+        builder.DELETE()
+    } else {
+        throw new IllegalArgumentException("Unsupported HTTP method: " + method)
+    }
+
+    HttpResponse<String> response = client.send(builder.build(), HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8))
+    long elapsedMs = ((System.nanoTime() - start) / 1_000_000L) as long
+    records << [name: name, method: method, path: path, status: response.statusCode(), elapsedMs: elapsedMs]
+
+    if (!expectedStatuses.contains(response.statusCode())) {
+        throw new AssertionError("${name} expected HTTP ${expectedStatuses} but got ${response.statusCode()} body=${response.body()}")
+    }
+
+    Object parsed = null
+    String responseBody = response.body()
+    if (responseBody != null && responseBody.trim().startsWith("{")) {
+        parsed = json.parseText(responseBody)
+        if (parsed instanceof Map && parsed.containsKey("code") && response.statusCode() != 400 && parsed.code != 0) {
+            throw new AssertionError("${name} expected api code=0 but got ${parsed.code} body=${responseBody}")
+        }
+    }
+    if (extraCheck != null) {
+        extraCheck(parsed, responseBody)
+    }
+    return parsed
+}
+
+// common-starter
+request("common-id", "GET", "/test/common/id")
+request("common-time", "GET", "/test/common/time")
+request("common-page", "GET", "/test/common/page")
+request("common-context", "GET", "/test/common/context")
+
+// json-starter
+request("json-provider", "GET", "/test/json/provider")
+request("json-roundtrip", "POST", "/test/json/roundtrip", [name: "jmeter", value: 42, nested: [enabled: true]], [200]) { parsed, body ->
+    assert parsed.data.match == true
+}
+
+// web-starter
+request("web-success", "GET", "/test/web/success")
+request("web-business-error", "GET", "/test/web/business-error", null, [400]) { parsed, body ->
+    assert parsed.code != 0
+}
+request("web-validation-ok", "POST", "/test/web/validation-error", [name: "jmeter", age: 30])
+request("web-request-id", "GET", "/test/web/request-id")
+
+// logging-starter
+request("logging-structured", "GET", "/test/logging/structured")
+request("logging-masking", "GET", "/test/logging/masking")
+request("logging-exception", "GET", "/test/logging/exception")
+request("logging-levels", "GET", "/test/logging/levels")
+
+// observability-starter
+request("observability-tracing-current", "GET", "/test/observability/tracing/current")
+request("observability-tracing-baggage", "GET", "/test/observability/tracing/baggage")
+request("observability-tracing-sampling", "GET", "/test/observability/tracing/sampling")
+request("observability-tracing-tag", "GET", "/test/observability/tracing/tag?value=${encoded("jmeter-${runId}")}")
+request("observability-metrics-counter", "GET", "/test/observability/metrics/counter?channel=jmeter")
+request("observability-metrics-timer", "GET", "/test/observability/metrics/timer")
+request("observability-health-custom", "GET", "/test/observability/health/custom")
+request("observability-health-endpoints", "GET", "/test/observability/health/endpoints")
+request("observability-request-id", "GET", "/test/observability/request-id")
+request("observability-request-id-gateway", "GET", "/test/observability/request-id/gateway-test")
+request("observability-request-id-full-context", "GET", "/test/observability/request-id/full-context")
+
+// security-starter
+request("security-public", "GET", "/test/security/public")
+request("security-user", "GET", "/test/security/user")
+request("security-internal", "GET", "/test/security/internal")
+
+// feign-starter
+request("feign-context-propagation", "GET", "/test/feign/context-propagation")
+request("feign-timeout-policy", "GET", "/test/feign/timeout-policy")
+request("feign-real-call", "GET", "/test/feign/real-call")
+request("feign-timeout-call", "GET", "/test/feign/timeout-call?delayMs=10")
+request("feign-connection-pool", "GET", "/test/feign/connection-pool")
+request("feign-retry-call", "GET", "/test/feign/retry-call?failureCount=0")
+request("feign-non-idempotent-retry-call", "POST", "/test/feign/non-idempotent-retry-call?failureCount=1")
+
+// async-starter
+request("async-run", "POST", "/test/async/run")
+request("async-context", "GET", "/test/async/context")
+request("async-metrics", "GET", "/test/async/metrics")
+
+// database-starter
+def orderNo = "JMETER-ORDER-${runId}"
+def createdOrder = request("database-order-create", "POST", "/test/database/order", [orderNo: orderNo, amount: 88.88, status: "CREATED"])
+def orderId = createdOrder.data.id
+request("database-order-get", "GET", "/test/database/order/${orderId}")
+request("database-transaction", "POST", "/test/database/transaction")
+request("database-routing-current", "GET", "/test/database/routing/current")
+def outbox = request("database-outbox-publish", "POST", "/test/database/outbox/publish",
+        [aggregateType: "Order", aggregateId: orderNo, eventType: "CREATED", payload: "{\"orderNo\":\"${orderNo}\"}"])
+def eventId = outbox.data.eventId
+request("database-outbox-unpublished", "GET", "/test/database/outbox/unpublished")
+if (eventId != null) {
+    request("database-outbox-mark-published", "POST", "/test/database/outbox/${eventId}/mark-published")
+}
+
+// redis-starter
+def cacheKey = "jmeter:redis:${runId}"
+request("redis-cache-put", "PUT", "/test/redis/cache/${cacheKey}", [value: "redis-value"])
+request("redis-cache-get", "GET", "/test/redis/cache/${cacheKey}")
+request("redis-cache-batch-delete", "POST", "/test/redis/cache/batch-delete", [cacheKey, "${cacheKey}:2"])
+def patternPrefix = "jmeter:redis:pattern:${runId}"
+request("redis-cache-pattern-put-1", "PUT", "/test/redis/cache/${patternPrefix}:1", [value: "one"])
+request("redis-cache-pattern-put-2", "PUT", "/test/redis/cache/${patternPrefix}:2", [value: "two"])
+request("redis-cache-pattern-delete", "POST", "/test/redis/cache/pattern-delete", [pattern: "${patternPrefix}:*"])
+request("redis-lock", "POST", "/test/redis/lock")
+request("redis-rate-limit", "GET", "/test/redis/rate-limit")
+request("redis-counter-increment", "POST", "/test/redis/counter/increment")
+request("redis-cache-delete", "DELETE", "/test/redis/cache/${cacheKey}")
+
+// kafka-starter
+def topic = "jmeter-starter-topic-${runId}"
+request("kafka-send", "POST", "/test/kafka/send", [topic: topic, message: "sync-${runId}"])
+request("kafka-send-async", "POST", "/test/kafka/send-async", [topic: topic, message: "async-${runId}"])
+request("kafka-consumer-status", "GET", "/test/kafka/consumer/status")
+request("kafka-consume-one", "POST", "/test/kafka/consume-one", [topic: topic, groupId: "jmeter-consumer-${runId}"])
+request("kafka-dlq-publish", "POST", "/test/kafka/dlq/publish", [topic: topic, key: "dlq-${runId}", value: "dead-letter", reason: "jmeter smoke"])
+request("kafka-dlq-replay", "POST", "/test/kafka/dlq/replay")
+request("kafka-outbox-publish-pending", "POST", "/test/kafka/outbox/publish-pending", [topic: topic])
+
+// elasticsearch-starter
+def esId = "jmeter-es-${runId}"
+request("elasticsearch-index", "POST", "/test/elasticsearch/order/index", [orderId: esId, orderNo: "ES-${runId}", amount: 66.66, status: "CREATED"])
+request("elasticsearch-get", "GET", "/test/elasticsearch/order/${esId}")
+request("elasticsearch-search", "GET", "/test/elasticsearch/order/search?status=CREATED")
+request("elasticsearch-search-page", "GET", "/test/elasticsearch/order/search-page?status=CREATED&from=0&size=5")
+request("elasticsearch-bulk", "POST", "/test/elasticsearch/order/bulk",
+        [[orderId: "${esId}-bulk", status: "CREATED"], [status: "INVALID"]])
+request("elasticsearch-alias-create", "POST", "/test/elasticsearch/alias/create",
+        [indexName: "demo-orders", aliasName: "demo-orders-current-${runId}"])
+request("elasticsearch-delete", "DELETE", "/test/elasticsearch/order/${esId}")
+
+// audit-starter
+def audit = request("audit-admin-action", "POST", "/test/audit/admin-action")
+def entryId = audit.data.entryId
+if (entryId != null) {
+    request("audit-get-by-id", "GET", "/test/audit/${entryId}")
+}
+request("audit-latest", "GET", "/test/audit/latest")
+
+// field-encryption-starter
+def encrypted = request("field-encryption-encrypt", "POST", "/test/field-encryption/encrypt", [plaintext: "sensitive-${runId}"])
+def ciphertext = encrypted.data.ciphertext
+request("field-encryption-decrypt", "POST", "/test/field-encryption/decrypt", [ciphertext: ciphertext])
+request("field-encryption-roundtrip", "POST", "/test/field-encryption/roundtrip", [plaintext: "roundtrip-${runId}"])
+
+// object-storage-starter
+def objectKey = "jmeter-object-${runId}"
+request("object-storage-upload", "POST", "/test/object-storage/object", [key: objectKey, content: "object-content-${runId}"])
+request("object-storage-download", "GET", "/test/object-storage/object/${objectKey}")
+request("object-storage-presigned-url", "GET", "/test/object-storage/object/${objectKey}/presigned-url")
+request("object-storage-delete", "DELETE", "/test/object-storage/object/${objectKey}")
+
+// drools-starter
+request("drools-member-level", "POST", "/test/drools/member-level", [spendingAmount: 15000])
+request("drools-rule-version", "GET", "/test/drools/rule-version")
+
+// xxl-job-starter
+request("xxl-job-daily-report", "POST", "/test/xxl-job/run/daily-report")
+request("xxl-job-idempotent", "POST", "/test/xxl-job/run/idempotent")
+request("xxl-job-status", "GET", "/test/xxl-job/status")
+
+// nacos-starter / apollo-starter configuration governance APIs
+request("nacos-source", "GET", "/test/nacos/source")
+request("nacos-masked", "GET", "/test/nacos/masked")
+request("nacos-validation", "GET", "/test/nacos/validation")
+request("apollo-source", "GET", "/test/apollo/source")
+request("apollo-masked", "GET", "/test/apollo/masked")
+request("apollo-validation", "GET", "/test/apollo/validation")
+
+SampleResult.setResponseCode("200")
+SampleResult.setResponseMessage("OK")
+SampleResult.setSuccessful(true)
+SampleResult.setResponseData(JsonOutput.prettyPrint(JsonOutput.toJson([
+        baseUrl: baseUrl,
+        runId: runId,
+        totalRequests: records.size(),
+        requests: records
+])), "UTF-8")
+]]></stringProp>
+        </JSR223Sampler>
+        <hashTree/>
+        <ResultCollector guiclass="ViewResultsFullVisualizer" testclass="ResultCollector" testname="View Results Tree" enabled="true">
+          <boolProp name="ResultCollector.error_logging">false</boolProp>
+          <objProp>
+            <name>saveConfig</name>
+            <value class="SampleSaveConfiguration">
+              <time>true</time>
+              <latency>true</latency>
+              <timestamp>true</timestamp>
+              <success>true</success>
+              <label>true</label>
+              <code>true</code>
+              <message>true</message>
+              <threadName>true</threadName>
+              <dataType>true</dataType>
+              <encoding>false</encoding>
+              <assertions>true</assertions>
+              <subresults>true</subresults>
+              <responseData>false</responseData>
+              <samplerData>false</samplerData>
+              <xml>false</xml>
+              <fieldNames>true</fieldNames>
+              <responseHeaders>false</responseHeaders>
+              <requestHeaders>false</requestHeaders>
+              <responseDataOnError>true</responseDataOnError>
+              <saveAssertionResultsFailureMessage>true</saveAssertionResultsFailureMessage>
+              <assertionsResultsToSave>0</assertionsResultsToSave>
+              <bytes>true</bytes>
+              <sentBytes>true</sentBytes>
+              <url>true</url>
+              <threadCounts>true</threadCounts>
+              <idleTime>true</idleTime>
+              <connectTime>true</connectTime>
+            </value>
+          </objProp>
+          <stringProp name="filename"></stringProp>
+        </ResultCollector>
+        <hashTree/>
+      </hashTree>
+    </hashTree>
+  </hashTree>
+</jmeterTestPlan>

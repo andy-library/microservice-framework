@@ -1,0 +1,248 @@
+# ============================================================================
+# Local Smoke Profile
+# ============================================================================
+# Quick-start profile for local development without any middleware.
+# Redis, Kafka, Elasticsearch are disabled/excluded; all demo endpoints
+# return 503 "not available" responses for middleware-dependent features.
+# H2 database provides embedded persistence.
+#
+# This profile preserves the current default behavior:
+# - Redis/Kafka/ES auto-configs are excluded
+# - Redis and Drools starters are disabled
+# - ObjectStorage is enabled but falls back to 503 (no S3/MinIO client)
+# - Controllers use @Autowired(required=false) and return 503 when beans are null
+#
+# Activate with: --spring.profiles.active=local-smoke
+# ============================================================================
+
+spring:
+  # Exclude middleware auto-configs — no Redis/Kafka/ES infrastructure available
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration
+      - org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
+      - org.springframework.boot.autoconfigure.elasticsearch.ElasticsearchRestClientAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchDataAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchRepositoriesAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.elasticsearch.ReactiveElasticsearchRepositoriesAutoConfiguration
+
+  datasource:
+    url: jdbc:h2:mem:demo;DB_CLOSE_DELAY=-1;MODE=MySQL
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+# Microservice Framework Configuration — middleware starters disabled or excluded
+framework:
+  # Common Starter
+  common:
+    time:
+      time-zone: Asia/Shanghai
+    id:
+      worker-id: 1
+    context:
+      enabled: true
+
+  # JSON Starter
+  json:
+    provider: jackson
+
+  # Web Starter
+  web:
+    response:
+      include-timestamp: true
+      include-request-id: true
+    exception:
+      enabled: true
+      include-stack-trace: false
+    request-id:
+      enabled: true
+      header-name: X-Request-ID
+
+  # Logging Starter
+  logging:
+    async:
+      enabled: true
+      queue-size: 256
+      discarding-threshold: 0
+    flood-protection:
+      enabled: true
+      rate: 10
+      burst-capacity: 100
+    masking:
+      enabled: true
+    trace-sampling:
+      enabled: true
+      level-for-unsampled: INFO
+
+  # Observability Starter
+  observability:
+    tracing:
+      sampling-probability: 1.0
+    baggage:
+      enabled: true
+      correlation-fields:
+        - user-id
+        - tenant-id
+        - request-source
+
+  # Security Starter
+  security:
+    enabled: true
+    jwt:
+      enabled: false
+    cors:
+      enabled: true
+      allowed-origins:
+        - "*"
+      allowed-methods:
+        - GET
+        - POST
+        - PUT
+        - DELETE
+    path:
+      permit-paths:
+        - /demo/**
+        - /test/**
+        - /perf/**
+        - /actuator/**
+        - /api/demo/**
+
+  # Async Starter
+  async:
+    pool:
+      core-size: 4
+      max-size: 8
+      queue-capacity: 256
+      thread-name-prefix: async-
+      rejection: CALLER_RUNS
+    context:
+      propagation-enabled: true
+    shutdown:
+      await-termination: true
+      await-termination-seconds: 30
+
+  # Redis Starter — DISABLED (no Redis server available)
+  redis:
+    enabled: false
+    cache:
+      enabled: true
+      default-ttl: 3600
+
+  # Database Starter
+  database:
+    enabled: true
+    data-source:
+      pool-size: 5
+      timeout: 30000
+    sharding:
+      enabled: false
+    rw:
+      enabled: false
+    transaction:
+      default-timeout: 30
+      default-isolation: READ_COMMITTED
+
+  # Audit Starter
+  audit:
+    enabled: true
+    b-side:
+      mandatory: false
+
+  # Field Encryption Starter
+  field-encryption:
+    enabled: true
+    algorithm:
+      name: AES/GCM/NoPadding
+      key-size: 256
+
+  # Object Storage Starter — enabled but 503 (no S3/MinIO client on classpath)
+  object-storage:
+    enabled: true
+    connection:
+      bucket: demo-bucket
+
+  # Drools Starter — DISABLED (no rule engine runtime)
+  drools:
+    rule:
+      enabled: false
+
+  # Config Center — disabled; ConfigGovernanceAutoConfiguration is now gated
+  # by both framework.nacos.enabled AND framework.config.enabled (or apollo + config)
+  nacos:
+    enabled: false
+  apollo:
+    enabled: false
+
+# Logging Configuration
+logging:
+  level:
+    root: INFO
+    com.microservice.demo: DEBUG
+    org.springframework.web: INFO
+
+# Management Endpoints
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics,loggers
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: always
+    loggers:
+      enabled: true
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+  tracing:
+    sampling:
+      probability: 1.0
+    baggage:
+      remote-fields:
+        - user-id
+        - tenant-id
+        - request-source
+  info:
+    env:
+      enabled: true
+
+# Application Info
+info:
+  app:
+    name: Microservice Framework Demo (Local Smoke)
+    description: Demonstration application — no middleware dependencies, quick-start profile
+    version: 1.0.0-SNAPSHOT
+    profile: local-smoke
+  framework:
+    starters:
+      - microservice-framework-common-starter
+      - microservice-framework-json-starter
+      - microservice-framework-web-starter
+      - microservice-framework-logging-starter
+      - microservice-framework-observability-starter
+      - microservice-framework-async-starter
+      - microservice-framework-security-starter
+      - microservice-framework-redis-starter (disabled)
+      - microservice-framework-database-starter
+      - microservice-framework-kafka-starter (excluded)
+      - microservice-framework-audit-starter
+      - microservice-framework-field-encryption-starter
+      - microservice-framework-object-storage-starter (503)

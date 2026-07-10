@@ -1,0 +1,30 @@
+# ============================================================================
+# Config-Nacos Profile
+# ============================================================================
+# Activates Nacos config center starter while keeping Apollo disabled.
+# Requires a running Nacos server at the configured address.
+#
+# Activate with: --spring.profiles.active=full-embedded,config-nacos
+#   or: --spring.profiles.active=full-middleware,config-nacos
+#
+# WARNING: Do NOT combine with config-apollo profile — they are mutually exclusive.
+# ============================================================================
+
+framework:
+  nacos:
+    enabled: true
+    server-addr: 127.0.0.1:8848
+    namespace: demo
+    group: DEFAULT_GROUP
+    data-id: microservice-framework-demo
+    timeout: 3000
+    max-retry: 3
+    service-discovery-enabled: false  # demo only uses config, not service discovery
+
+  # Enable config governance when nacos is active
+  config:
+    enabled: true
+
+  # Explicitly disable Apollo to prevent conflict
+  apollo:
+    enabled: false

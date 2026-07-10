@@ -1,0 +1,589 @@
+{
+	"info": {
+		"_postman_id": "microservice-framework-demo-collection",
+		"name": "Microservice Framework Demo API",
+		"description": "Complete API collection for testing Microservice Framework capabilities",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "1. User Management",
+			"item": [
+				{
+					"name": "Create User (Test Masking)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"username\": \"john.doe\",\n  \"email\": \"john.doe@example.com\",\n  \"phone\": \"13812345678\",\n  \"idCard\": \"110101199001011234\",\n  \"bankCard\": \"6222021234567890123\",\n  \"address\": \"Beijing, China\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/users",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"users"
+							]
+						},
+						"description": "Create a user with sensitive data to test data masking in logs"
+					}
+				},
+				{
+					"name": "Get User",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/users/{{userId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"users",
+								"{{userId}}"
+							]
+						},
+						"description": "Get user by ID - demonstrates @SpanTag annotation"
+					}
+				},
+				{
+					"name": "Update User",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"username\": \"john.doe.updated\",\n  \"email\": \"john.updated@example.com\",\n  \"phone\": \"13987654321\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/users/{{userId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"users",
+								"{{userId}}"
+							]
+						}
+					}
+				},
+				{
+					"name": "Simulate Error",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/users/{{userId}}/error",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"users",
+								"{{userId}}",
+								"error"
+							]
+						},
+						"description": "Trigger an error to test exception logging"
+					}
+				}
+			]
+		},
+		{
+			"name": "2. Order Management",
+			"item": [
+				{
+					"name": "Create Order (Cross-Service Call)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"userId\": \"{{userId}}\",\n  \"productName\": \"Laptop\",\n  \"amount\": 5999.99\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/orders",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"orders"
+							]
+						},
+						"description": "Create order - demonstrates cross-service call and trace propagation"
+					}
+				},
+				{
+					"name": "Get Order",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/orders/{{orderId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"orders",
+								"{{orderId}}"
+							]
+						}
+					}
+				},
+				{
+					"name": "Update Order Status",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"status\": \"COMPLETED\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/orders/{{orderId}}/status",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"orders",
+								"{{orderId}}",
+								"status"
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "3. Logging Demos",
+			"item": [
+				{
+					"name": "Structured Logging",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/demo/logging/structured",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"demo",
+								"logging",
+								"structured"
+							]
+						},
+						"description": "Demonstrate structured logging with key-value pairs"
+					}
+				},
+				{
+					"name": "Data Masking",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/demo/logging/masking",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"demo",
+								"logging",
+								"masking"
+							]
+						},
+						"description": "Demonstrate automatic data masking for sensitive information"
+					}
+				},
+				{
+					"name": "Flood Protection",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/demo/logging/flood",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"demo",
+								"logging",
+								"flood"
+							]
+						},
+						"description": "Test log flood protection (rate limiting)"
+					}
+				},
+				{
+					"name": "Exception Logging",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/demo/logging/exception",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"demo",
+								"logging",
+								"exception"
+							]
+						},
+						"description": "Demonstrate automatic exception field extraction"
+					}
+				},
+				{
+					"name": "Log Levels",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/demo/logging/levels",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"demo",
+								"logging",
+								"levels"
+							]
+						},
+						"description": "Test different log levels (DEBUG, INFO, WARN, ERROR)"
+					}
+				}
+			]
+		},
+		{
+			"name": "4. Tracing Demos",
+			"item": [
+				{
+					"name": "Get Current Trace",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/demo/tracing/current",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"demo",
+								"tracing",
+								"current"
+							]
+						},
+						"description": "Get current trace ID and span ID"
+					}
+				},
+				{
+					"name": "Baggage Propagation",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "user-id",
+								"value": "user123"
+							},
+							{
+								"key": "tenant-id",
+								"value": "tenant456"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/demo/tracing/baggage",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"demo",
+								"tracing",
+								"baggage"
+							]
+						},
+						"description": "Test baggage propagation with custom headers"
+					}
+				},
+				{
+					"name": "Trace Sampling",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/demo/tracing/sampling",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"demo",
+								"tracing",
+								"sampling"
+							]
+						},
+						"description": "Check if current trace is sampled"
+					}
+				}
+			]
+		},
+		{
+			"name": "5. Health & Actuator",
+			"item": [
+				{
+					"name": "Custom Health Check",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/demo/health/custom",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"demo",
+								"health",
+								"custom"
+							]
+						}
+					}
+				},
+				{
+					"name": "Get Actuator Endpoints",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/demo/health/endpoints",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"demo",
+								"health",
+								"endpoints"
+							]
+						}
+					}
+				},
+				{
+					"name": "Actuator Health",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/actuator/health",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"actuator",
+								"health"
+							]
+						}
+					}
+				},
+				{
+					"name": "Actuator Info",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/actuator/info",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"actuator",
+								"info"
+							]
+						}
+					}
+				},
+				{
+					"name": "Actuator Metrics",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/actuator/metrics",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"actuator",
+								"metrics"
+							]
+						}
+					}
+				},
+				{
+					"name": "Actuator Prometheus",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/actuator/prometheus",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"actuator",
+								"prometheus"
+							]
+						}
+					}
+				},
+				{
+					"name": "Actuator Loggers",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/actuator/loggers",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"actuator",
+								"loggers"
+							]
+						}
+					}
+				},
+				{
+					"name": "Change Log Level (Dynamic)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"configuredLevel\": \"DEBUG\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/actuator/loggers/com.microservice.demo",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"actuator",
+								"loggers",
+								"com.microservice.demo"
+							]
+						},
+						"description": "Dynamically change log level to DEBUG"
+					}
+				}
+			]
+		},
+		{
+			"name": "6. Metrics Demos",
+			"item": [
+				{
+					"name": "Increment Counter",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/demo/metrics/counter?channel=app",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"demo",
+								"metrics",
+								"counter"
+							],
+							"query": [
+								{
+									"key": "channel",
+									"value": "app"
+								}
+							]
+						},
+						"description": "Increment a custom business counter"
+					}
+				},
+				{
+					"name": "Record Timer",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/demo/metrics/timer",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"demo",
+								"metrics",
+								"timer"
+							]
+						},
+						"description": "Record a custom business timer"
+					}
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:8080",
+			"type": "string"
+		},
+		{
+			"key": "userId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "orderId",
+			"value": "",
+			"type": "string"
+		}
+	]
+}

@@ -1,0 +1,29 @@
+# ============================================================================
+# Config-Apollo Profile
+# ============================================================================
+# Activates Apollo config center starter while keeping Nacos disabled.
+# Requires a running Apollo config service at the configured URL.
+#
+# Activate with: --spring.profiles.active=full-embedded,config-apollo
+#   or: --spring.profiles.active=full-middleware,config-apollo
+#
+# WARNING: Do NOT combine with config-nacos profile — they are mutually exclusive.
+# ============================================================================
+
+framework:
+  apollo:
+    enabled: true
+    appId: microservice-framework-demo
+    cluster: default
+    namespaces:
+      - application
+    env: DEV
+    meta-server-url: http://127.0.0.1:8080
+
+  # Enable config governance when apollo is active
+  config:
+    enabled: true
+
+  # Explicitly disable Nacos to prevent conflict
+  nacos:
+    enabled: false

@@ -1,0 +1,3 @@
+org.springframework.boot.diagnostics.FailureAnalyzer=\
+com.microservice.framework.nacos.autoconfigure.ApolloExclusionFailureAnalyzer,\
+com.microservice.framework.nacos.autoconfigure.ConfigCenterMutualExclusionFailureAnalyzer

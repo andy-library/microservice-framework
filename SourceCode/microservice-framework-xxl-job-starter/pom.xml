@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!-- ========================================================================
+         父POM继承
+         说明：继承 microservice-framework-parent（非 starter-parent）
+         原因：xxl-job-starter 是框架内部组件，不是业务应用
+         ======================================================================== -->
+    <parent>
+        <groupId>com.microservice.framework</groupId>
+        <artifactId>microservice-framework-parent</artifactId>
+        <version>${revision}</version>
+        <relativePath>../microservice-framework-parent/pom.xml</relativePath>
+    </parent>
+
+    <!-- ========================================================================
+         项目基本信息
+         ======================================================================== -->
+    <artifactId>microservice-framework-xxl-job-starter</artifactId>
+    <packaging>jar</packaging>
+
+    <name>Microservice Framework XXL-JOB Starter</name>
+    <description>XXL-JOB Starter - 提供任务执行、幂等、超时、日志、告警和手动重试抽象</description>
+
+    <!-- ========================================================================
+         依赖管理
+         说明：导入 BOM 以获取内部组件和第三方库的版本管理
+         ======================================================================== -->
+    <dependencyManagement>
+        <dependencies>
+            <!-- 导入框架 BOM，获取内部组件版本 -->
+            <dependency>
+                <groupId>com.microservice.framework</groupId>
+                <artifactId>microservice-framework-bom</artifactId>
+                <version>${project.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <!-- 导入第三方依赖 BOM -->
+            <dependency>
+                <groupId>com.microservice.framework</groupId>
+                <artifactId>microservice-framework-dependencies</artifactId>
+                <version>${project.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <!-- ========================================================================
+         依赖声明
+         说明：所有依赖版本由 BOM 统一管理
+         ======================================================================== -->
+    <dependencies>
+        <!-- ====================================================================
+             Common Starter（强制依赖）
+             作用：提供 FrameworkException、FrameworkErrorCode、FrameworkContext 等基础设施
+             版本：由 microservice-framework-bom 管理
+             ==================================================================== -->
+        <dependency>
+            <groupId>com.microservice.framework</groupId>
+            <artifactId>microservice-framework-common-starter</artifactId>
+        </dependency>
+
+        <!-- ====================================================================
+             JSON Starter（可选依赖）
+             作用：提供统一的 JSON 序列化/反序列化，增强任务参数解析能力
+             版本：由 microservice-framework-bom 管理
+             ==================================================================== -->
+        <dependency>
+            <groupId>com.microservice.framework</groupId>
+            <artifactId>microservice-framework-json-starter</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- ====================================================================
+             Spring Boot Starter（强制依赖）
+             作用：提供 Spring Boot 核心自动配置能力
+             版本：由 spring-boot-dependencies 管理
+             ==================================================================== -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter</artifactId>
+        </dependency>
+
+        <!-- ====================================================================
+             Spring Boot Starter Validation（强制依赖）
+             作用：启用 XxlJobProperties 的 Jakarta Bean Validation 配置校验
+             版本：由 spring-boot-dependencies 管理
+             ==================================================================== -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+
+        <!-- ====================================================================
+             Logging Starter（可选依赖）
+             作用：提供结构化日志和 tracing，增强任务执行的可观测性
+             版本：由 microservice-framework-bom 管理
+             ==================================================================== -->
+        <dependency>
+            <groupId>com.microservice.framework</groupId>
+            <artifactId>microservice-framework-logging-starter</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- ====================================================================
+             xxl-job-core（可选依赖）
+             作用：提供 XXL-JOB 核心处理器和执行器能力
+             版本：由 microservice-framework-dependencies BOM 管理
+             说明：作为可选依赖声明，自动配置通过 @ConditionalOnClass 检测
+             ==================================================================== -->
+        <dependency>
+            <groupId>com.xuxueli</groupId>
+            <artifactId>xxl-job-core</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- ====================================================================
+             Spring Boot Configuration Processor
+             作用：生成配置元数据，支持 IDE 自动补全
+             可选：仅在开发时需要
+             ==================================================================== -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-configuration-processor</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- ====================================================================
+             Test Dependencies
+             ==================================================================== -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>

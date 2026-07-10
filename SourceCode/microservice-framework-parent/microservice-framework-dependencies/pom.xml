@@ -1,0 +1,295 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!-- ========================================================================
+         父POM继承
+         说明：继承 microservice-framework-parent 以获取统一的构建配置和版本管理
+         ======================================================================== -->
+    <parent>
+        <groupId>com.microservice.framework</groupId>
+        <artifactId>microservice-framework-parent</artifactId>
+        <version>${revision}</version>
+        <!-- relativePath 指向父POM的位置，默认为 ../pom.xml -->
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <!-- ========================================================================
+         项目基本信息
+         ======================================================================== -->
+    <artifactId>microservice-framework-dependencies</artifactId>
+    <packaging>pom</packaging>
+
+    <name>Microservice Framework Dependencies</name>
+    <description>第三方依赖版本管理中心 - 统一管理 Spring Boot、Spring Cloud 及其他开源组件的版本</description>
+
+    <!-- ========================================================================
+         版本属性定义
+         说明：集中管理第三方库的版本号，便于维护和升级
+         ======================================================================== -->
+    <properties>
+        <!-- 可观测性相关 -->
+        <opentelemetry.version>1.35.0</opentelemetry.version>
+        <micrometer-tracing.version>1.4.1</micrometer-tracing.version>
+
+        <!-- 工具库 -->
+        <guava.version>33.0.0-jre</guava.version>
+        <hutool.version>5.8.26</hutool.version>
+        <fastjson2.version>2.0.54</fastjson2.version>
+        <lombok.version>1.18.42</lombok.version>
+
+        <!-- 日志相关 -->
+        <logstash-logback-encoder.version>7.4</logstash-logback-encoder.version>
+
+        <!-- 规则引擎 -->
+        <drools.version>8.44.2.Final</drools.version>
+
+        <!-- 对象存储 -->
+        <aws-sdk.version>2.29.45</aws-sdk.version>
+        <minio.version>8.5.14</minio.version>
+
+        <!-- 任务调度 -->
+        <xxl-job.version>2.4.2</xxl-job.version>
+
+        <!-- 数据库治理 -->
+        <shardingsphere.version>5.5.1</shardingsphere.version>
+        <checker-qual.version>3.41.0</checker-qual.version>
+        <error-prone-annotations.version>2.23.0</error-prone-annotations.version>
+        <commons-lang3.version>3.15.0</commons-lang3.version>
+        <snakeyaml.version>2.3</snakeyaml.version>
+        <commons-logging.version>1.2</commons-logging.version>
+        <antlr4-runtime.version>4.13.0</antlr4-runtime.version>
+
+        <!-- 测试相关 -->
+        <rest-assured.version>5.3.2</rest-assured.version>
+    </properties>
+
+    <!-- ========================================================================
+         依赖管理 (dependencyManagement)
+         说明：这里定义的依赖版本将被所有引入此 POM 的模块继承
+         注意：此模块仅管理"外部"第三方依赖，不管理框架内部组件
+         ======================================================================== -->
+    <dependencyManagement>
+        <dependencies>
+            <!-- ================================================================
+                 Spring Boot BOM
+                 作用：导入 Spring Boot 官方的依赖版本清单
+                 原因：Spring Boot 已为数百个常用库定义了兼容版本，避免版本冲突
+                 ================================================================ -->
+            <dependency>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-dependencies</artifactId>
+                <version>${spring-boot.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <!-- ================================================================
+                 Spring Cloud BOM
+                 作用：导入 Spring Cloud 官方的依赖版本清单
+                 原因：Spring Cloud 组件之间有严格的版本对应关系，使用 BOM 确保兼容性
+                 ================================================================ -->
+            <dependency>
+                <groupId>org.springframework.cloud</groupId>
+                <artifactId>spring-cloud-dependencies</artifactId>
+                <version>${spring-cloud.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <!-- ================================================================
+                 OpenTelemetry BOM
+                 作用：统一管理 OpenTelemetry 组件版本
+                 原因：Observability Starter 需要 OpenTelemetry 进行分布式追踪
+                 版本说明：
+                   - 1.35.0 是当前稳定版本 (2024-01)
+                   - 与 Spring Boot 3.3.x 和 Micrometer Tracing 1.4.x 兼容
+                   - 详见: https://opentelemetry.io/docs/languages/java/
+                 ================================================================ -->
+            <dependency>
+                <groupId>io.opentelemetry</groupId>
+                <artifactId>opentelemetry-bom</artifactId>
+                <version>${opentelemetry.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <!-- ================================================================
+                 Micrometer Tracing BOM
+                 作用：统一管理 Micrometer Tracing 组件版本
+                 原因：Observability Starter 需要 Micrometer Tracing 桥接 OpenTelemetry
+                 版本说明：
+                   - 1.4.1 是当前稳定版本，与 Spring Boot 3.3.x 官方推荐版本一致
+                   - 提供更好的虚拟线程支持和性能优化
+                   - 详见: https://micrometer.io/docs/tracing
+                 ================================================================ -->
+            <dependency>
+                <groupId>io.micrometer</groupId>
+                <artifactId>micrometer-tracing-bom</artifactId>
+                <version>${micrometer-tracing.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <!-- ================================================================
+                 Drools BOM
+                 作用：统一管理 Drools 规则引擎组件版本
+                 原因：Drools Starter 需要 drools-core 和 drools-compiler
+                 版本说明：
+                   - 8.44.2.Final 是当前稳定版本
+                   - 使用 BOM 避免 Drools 内部模块版本冲突
+                 ================================================================ -->
+            <dependency>
+                <groupId>org.drools</groupId>
+                <artifactId>drools-bom</artifactId>
+                <version>${drools.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <!-- ================================================================
+                 AWS SDK BOM
+                 作用：统一管理 AWS SDK v2 组件版本
+                 原因：Object Storage Starter 需要 S3 客户端
+                 版本说明：
+                   - 2.29.45 是当前稳定版本
+                   - 使用 BOM 避免 AWS SDK 内部模块版本冲突
+                 ================================================================ -->
+            <dependency>
+                <groupId>software.amazon.awssdk</groupId>
+                <artifactId>bom</artifactId>
+                <version>${aws-sdk.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <!-- ================================================================
+                 其他第三方库
+                 说明：这里可以覆盖 Spring Boot BOM 中的版本，或添加新的第三方库
+                 ================================================================ -->
+
+            <!-- MinIO: MinIO 对象存储 Java SDK
+                 作用：提供 MinIO 协议实现，支持 S3 兼容存储
+                 原因：Object Storage Starter 需要作为可选的存储后端 -->
+            <dependency>
+                <groupId>io.minio</groupId>
+                <artifactId>minio</artifactId>
+                <version>${minio.version}</version>
+            </dependency>
+
+            <!-- XXL-JOB Core: 分布式任务调度核心
+                 作用：提供 XXL-JOB 任务处理器和执行器能力
+                 原因：XXL-JOB Starter 需要作为可选的任务调度后端 -->
+            <dependency>
+                <groupId>com.xuxueli</groupId>
+                <artifactId>xxl-job-core</artifactId>
+                <version>${xxl-job.version}</version>
+            </dependency>
+
+            <!-- ShardingSphere-JDBC: 数据库读写分离、分库分表治理
+                 作用：Database Starter 默认集成的数据库治理引擎
+                 原因：统一提供读写分离和后续分库分表能力，版本由框架集中治理 -->
+            <dependency>
+                <groupId>org.apache.shardingsphere</groupId>
+                <artifactId>shardingsphere-jdbc</artifactId>
+                <version>${shardingsphere.version}</version>
+            </dependency>
+
+            <!-- ShardingSphere 5.5.1 传递依赖收敛治理 -->
+            <dependency>
+                <groupId>org.checkerframework</groupId>
+                <artifactId>checker-qual</artifactId>
+                <version>${checker-qual.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.google.errorprone</groupId>
+                <artifactId>error_prone_annotations</artifactId>
+                <version>${error-prone-annotations.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-lang3</artifactId>
+                <version>${commons-lang3.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.yaml</groupId>
+                <artifactId>snakeyaml</artifactId>
+                <version>${snakeyaml.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>commons-logging</groupId>
+                <artifactId>commons-logging</artifactId>
+                <version>${commons-logging.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.antlr</groupId>
+                <artifactId>antlr4-runtime</artifactId>
+                <version>${antlr4-runtime.version}</version>
+            </dependency>
+
+            <!-- Guava: Google 核心 Java 库
+                 作用：提供集合、缓存、并发等工具类
+                 原因：业界标准的工具库，补充 JDK 不足 -->
+            <dependency>
+                <groupId>com.google.guava</groupId>
+                <artifactId>guava</artifactId>
+                <version>${guava.version}</version>
+            </dependency>
+
+
+            <!-- Hutool: 国产 Java 工具库
+                 作用：提供丰富的中文友好工具类（日期、加密、HTTP 等）
+                 原因：简化常见业务开发场景，减少重复代码 -->
+            <dependency>
+                <groupId>cn.hutool</groupId>
+                <artifactId>hutool-all</artifactId>
+                <version>${hutool.version}</version>
+            </dependency>
+
+            <!-- Logstash Logback Encoder: JSON 日志格式化
+                 作用：将日志输出为 JSON 格式，便于日志收集和分析
+                 原因：Logging Starter 需要标准化的 JSON 日志输出 -->
+            <dependency>
+                <groupId>net.logstash.logback</groupId>
+                <artifactId>logstash-logback-encoder</artifactId>
+                <version>${logstash-logback-encoder.version}</version>
+            </dependency>
+
+            <!-- Fastjson2: 阿里巴巴高性能 JSON 库
+                 作用：提供极致性能的 JSON 序列化/反序列化能力
+                 版本：2.0.54 (2025 年最新稳定版)
+                 原因：作为可选的高性能 JSON 处理方案 -->
+            <dependency>
+                <groupId>com.alibaba.fastjson2</groupId>
+                <artifactId>fastjson2</artifactId>
+                <version>${fastjson2.version}</version>
+            </dependency>
+
+            <!-- Lombok: 代码生成工具
+                 作用：通过注解自动生成 getter/setter/builder 等样板代码
+                 版本：1.18.42 (支持 Java 21)
+                 原因：简化 POJO 类编写，提升开发效率 -->
+            <dependency>
+                <groupId>org.projectlombok</groupId>
+                <artifactId>lombok</artifactId>
+                <version>${lombok.version}</version>
+            </dependency>
+
+            <!-- REST Assured: REST API 测试框架
+                 作用：简化 REST API 集成测试
+                 原因：提供流畅的 API 测试 DSL -->
+            <dependency>
+                <groupId>io.rest-assured</groupId>
+                <artifactId>rest-assured</artifactId>
+                <version>${rest-assured.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+</project>

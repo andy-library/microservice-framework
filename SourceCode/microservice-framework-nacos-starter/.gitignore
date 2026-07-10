@@ -1,0 +1,23 @@
+# Compiled class files
+target/
+
+# Maven
+.flattened-pom.xml
+
+# IDE
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+.settings/
+.classpath
+.project
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build
+build/
+out/

@@ -1,0 +1,256 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+         http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!-- 继承业务应用父POM -->
+    <parent>
+        <groupId>com.microservice.framework</groupId>
+        <artifactId>microservice-framework-starter-parent</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+        <relativePath/>
+    </parent>
+
+    <artifactId>microservice-framework-demo</artifactId>
+    <packaging>jar</packaging>
+
+    <name>Microservice Framework Demo</name>
+    <description>Demo application for Microservice Framework - Full starter integration and verification</description>
+
+    <dependencies>
+        <!-- ====================================================================
+             Spring Boot 基础能力
+             说明：提供 Web 和 REST API 能力
+             ==================================================================== -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <!-- ====================================================================
+             Microservice Framework — 基础链路 Starters
+             说明：common/json/web/logging/observability 为所有业务应用必须的基础链路
+             ==================================================================== -->
+        <dependency>
+            <groupId>com.microservice.framework</groupId>
+            <artifactId>microservice-framework-common-starter</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.microservice.framework</groupId>
+            <artifactId>microservice-framework-json-starter</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.microservice.framework</groupId>
+            <artifactId>microservice-framework-web-starter</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.microservice.framework</groupId>
+            <artifactId>microservice-framework-logging-starter</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.microservice.framework</groupId>
+            <artifactId>microservice-framework-observability-starter</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.microservice.framework</groupId>
+            <artifactId>microservice-framework-async-starter</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.microservice.framework</groupId>
+            <artifactId>microservice-framework-security-starter</artifactId>
+        </dependency>
+
+        <!-- ====================================================================
+             Microservice Framework — 基础设施 Starters
+             说明：依赖外部中间件，demo 默认使用 mock/embedded 模式
+             ==================================================================== -->
+        <dependency>
+            <groupId>com.microservice.framework</groupId>
+            <artifactId>microservice-framework-redis-starter</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.microservice.framework</groupId>
+            <artifactId>microservice-framework-database-starter</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!-- MySQL 运行时驱动：full-middleware 真实中间件验收使用本地 MySQL -->
+        <dependency>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!-- JPA 持久化能力：demo 项目需要 JPA 进行实体持久化和 Repository 操作 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.microservice.framework</groupId>
+            <artifactId>microservice-framework-kafka-starter</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.microservice.framework</groupId>
+            <artifactId>microservice-framework-feign-starter</artifactId>
+        </dependency>
+
+        <!-- OpenFeign runtime for demo business Feign clients -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-openfeign</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.microservice.framework</groupId>
+            <artifactId>microservice-framework-xxl-job-starter</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.microservice.framework</groupId>
+            <artifactId>microservice-framework-elasticsearch-starter</artifactId>
+        </dependency>
+
+        <!-- ====================================================================
+             Microservice Framework — 扩展 Starters
+             ==================================================================== -->
+        <dependency>
+            <groupId>com.microservice.framework</groupId>
+            <artifactId>microservice-framework-audit-starter</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.microservice.framework</groupId>
+            <artifactId>microservice-framework-field-encryption-starter</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.microservice.framework</groupId>
+            <artifactId>microservice-framework-object-storage-starter</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.microservice.framework</groupId>
+            <artifactId>microservice-framework-drools-starter</artifactId>
+        </dependency>
+
+        <!-- ====================================================================
+             Microservice Framework — 配置中心 Starters
+             说明：nacos/apollo 互斥启用，默认 disabled 防止冲突
+             ==================================================================== -->
+        <dependency>
+            <groupId>com.microservice.framework</groupId>
+            <artifactId>microservice-framework-nacos-starter</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.microservice.framework</groupId>
+            <artifactId>microservice-framework-apollo-starter</artifactId>
+        </dependency>
+
+        <!-- ====================================================================
+             开发工具
+             ==================================================================== -->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- ====================================================================
+             测试依赖
+             ==================================================================== -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.rest-assured</groupId>
+            <artifactId>rest-assured</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <!-- ====================================================================
+         Maven Profiles
+         说明：full-middleware profile 将 spring-kafka 加入 runtime scope，
+         用于需要真实 Kafka 连接的性能测试和中间件验证。
+         ==================================================================== -->
+    <profiles>
+        <profile>
+            <id>full-middleware</id>
+            <dependencies>
+                <dependency>
+                    <groupId>org.springframework.kafka</groupId>
+                    <artifactId>spring-kafka</artifactId>
+                    <scope>runtime</scope>
+                </dependency>
+            </dependencies>
+        </profile>
+
+        <profile>
+            <id>real-middleware-acceptance</id>
+            <properties>
+                <demo.real.middleware.acceptance>true</demo.real.middleware.acceptance>
+            </properties>
+            <dependencies>
+                <dependency>
+                    <groupId>org.springframework.kafka</groupId>
+                    <artifactId>spring-kafka</artifactId>
+                    <scope>runtime</scope>
+                </dependency>
+            </dependencies>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <systemPropertyVariables>
+                                <demo.real.middleware.acceptance>${demo.real.middleware.acceptance}</demo.real.middleware.acceptance>
+                            </systemPropertyVariables>
+                            <includes>
+                                <include>**/Real*AcceptanceTest.java</include>
+                            </includes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <excludes>
+                        <exclude>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                        </exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>

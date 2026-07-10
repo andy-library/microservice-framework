@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Microservice Framework 默认日志配置
+    ============================
+
+    详细文档：请参考 microservice-framework-logging-starter/README.md
+-->
+<configuration>
+    <!-- 读取 Spring Boot 配置 -->
+    <springProperty scope="context" name="APP_NAME" source="spring.application.name" defaultValue="application"/>
+    <springProperty scope="context" name="LOG_LEVEL" source="logging.level.root" defaultValue="INFO"/>
+
+    <!-- 异步日志配置 -->
+    <springProperty scope="context" name="ASYNC_ENABLED" source="framework.logging.async.enabled" defaultValue="true"/>
+    <springProperty scope="context" name="ASYNC_QUEUE_SIZE" source="framework.logging.async.queue-size" defaultValue="256"/>
+    <springProperty scope="context" name="ASYNC_DISCARDING_THRESHOLD" source="framework.logging.async.discarding-threshold" defaultValue="0"/>
+
+    <!-- JSON 格式日志输出 (Console) -->
+    <appender name="JSON_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <customFields>{"app":"${APP_NAME}"}</customFields>
+            
+            <!-- 核心 MDC 字段 -->
+            <includeMdcKeyName>traceId</includeMdcKeyName>
+            <includeMdcKeyName>spanId</includeMdcKeyName>
+            <includeMdcKeyName>requestId</includeMdcKeyName>
+            
+            <includeContext>true</includeContext>
+            <includeCallerData>false</includeCallerData>
+        </encoder>
+    </appender>
+
+    <!-- 异步 Appender 包装 -->
+    <appender name="ASYNC_JSON_CONSOLE" class="ch.qos.logback.classic.AsyncAppender">
+        <!-- 队列深度 -->
+        <queueSize>${ASYNC_QUEUE_SIZE}</queueSize>
+        <!-- 丢弃阈值：当队列剩余容量低于 20% 时，丢弃 TRACE, DEBUG, INFO -->
+        <discardingThreshold>${ASYNC_DISCARDING_THRESHOLD}</discardingThreshold>
+        <!-- 即使队列满了也不阻塞主线程（可能会丢弃日志），确保业务性能 -->
+        <neverBlock>true</neverBlock>
+        <!-- 包含调用者数据（如果 Encoder 开启了 includeCallerData，这里也需要开启，会有性能损耗） -->
+        <includeCallerData>false</includeCallerData>
+
+        <appender-ref ref="JSON_CONSOLE"/>
+    </appender>
+
+    <!-- Root Logger -->
+    <if condition='property("ASYNC_ENABLED").equalsIgnoreCase("true")'>
+        <then>
+            <root level="${LOG_LEVEL}">
+                <appender-ref ref="ASYNC_JSON_CONSOLE"/>
+            </root>
+        </then>
+        <else>
+            <root level="${LOG_LEVEL}">
+                <appender-ref ref="JSON_CONSOLE"/>
+            </root>
+        </else>
+    </if>
+
+    <!-- 框架日志级别 -->
+    <logger name="org.springframework" level="INFO"/>
+    <logger name="org.hibernate" level="INFO"/>
+    <logger name="io.micrometer" level="INFO"/>
+
+    <!--
+       注意：RateLimitingTurboFilter 和 Masking 相关的配置
+       将通过 LoggingAutoConfiguration 编程式注入，
+       以便更好地支持 Spring 属性绑定。
+    -->
+</configuration>

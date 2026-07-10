@@ -1,0 +1,4 @@
+com.microservice.framework.common.autoconfigure.CommonProductionSafetyAutoConfiguration
+com.microservice.framework.common.autoconfigure.CommonTimeAutoConfiguration
+com.microservice.framework.common.autoconfigure.CommonIdAutoConfiguration
+com.microservice.framework.common.autoconfigure.CommonContextAutoConfiguration

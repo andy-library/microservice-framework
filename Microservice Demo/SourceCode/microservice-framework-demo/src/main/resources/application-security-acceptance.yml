@@ -1,0 +1,39 @@
+spring:
+  security:
+    user:
+      name: demo-user
+      password: demo-pass
+      roles:
+        - USER
+
+framework:
+  security:
+    enabled: true
+    jwt:
+      enabled: false
+    service-identity:
+      enabled: true
+      service-id-header: X-Service-Id
+      service-timestamp-header: X-Service-Timestamp
+      service-nonce-header: X-Service-Nonce
+      service-signature-header: X-Service-Signature
+      shared-secret: security-acceptance-secret
+      allowed-clock-skew-seconds: 300
+      protected-paths:
+        - /demo/security/internal
+    cors:
+      enabled: true
+      allowed-origins:
+        - "*"
+      allowed-methods:
+        - GET
+        - POST
+        - PUT
+        - DELETE
+        - OPTIONS
+    path:
+      permit-paths:
+        - /demo/security/public
+        - /actuator/**
+      deny-paths:
+        - /demo/security/denied

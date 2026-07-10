@@ -1,0 +1,5 @@
+com.microservice.framework.observability.autoconfigure.common.MdcAutoConfiguration
+com.microservice.framework.observability.autoconfigure.tracing.BaggageAutoConfiguration
+com.microservice.framework.observability.autoconfigure.tracing.TraceableAspectAutoConfiguration
+com.microservice.framework.observability.autoconfigure.tracing.SpanTagAspectAutoConfiguration
+com.microservice.framework.observability.autoconfigure.metrics.PrometheusMetricsAutoConfiguration

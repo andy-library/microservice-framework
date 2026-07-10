@@ -1,0 +1,4 @@
+com.microservice.framework.json.autoconfigure.JsonAutoConfiguration
+com.microservice.framework.json.autoconfigure.JsonProductionSafetyAutoConfiguration
+com.microservice.framework.json.autoconfigure.JacksonJsonAutoConfiguration
+com.microservice.framework.json.autoconfigure.Fastjson2JsonAutoConfiguration

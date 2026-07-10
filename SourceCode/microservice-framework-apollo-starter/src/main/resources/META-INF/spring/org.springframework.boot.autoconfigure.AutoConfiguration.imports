@@ -1,0 +1,4 @@
+com.microservice.framework.apollo.autoconfigure.ApolloProductionSafetyAutoConfiguration
+com.microservice.framework.apollo.autoconfigure.ApolloConfigAutoConfiguration
+com.microservice.framework.apollo.autoconfigure.KubernetesConfigAutoConfiguration
+com.microservice.framework.apollo.autoconfigure.ConfigGovernanceAutoConfiguration

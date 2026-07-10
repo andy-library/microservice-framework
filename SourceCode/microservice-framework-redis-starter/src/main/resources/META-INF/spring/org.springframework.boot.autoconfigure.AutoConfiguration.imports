@@ -1,0 +1,2 @@
+com.microservice.framework.redis.autoconfigure.RedisAutoConfiguration
+com.microservice.framework.redis.autoconfigure.RedisProductionSafetyAutoConfiguration

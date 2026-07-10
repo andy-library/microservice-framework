@@ -1,0 +1,303 @@
+# ============================================================================
+# Full Middleware Profile
+# ============================================================================
+# All starters enabled with real local middleware connections where local
+# middleware exists. Starters without a supplied external service keep their
+# framework-level embedded/demo provider so the starter capability can still be
+# verified by the demo project.
+#
+# Prerequisites:
+# - MySQL server running at ${DEMO_MYSQL_URL}
+# - Redis server running at ${DEMO_REDIS_HOST}:${DEMO_REDIS_PORT}
+# - Kafka broker running at 127.0.0.1:9092
+# - Elasticsearch running at http://127.0.0.1:9200
+# - Nacos or Apollo config center (optional, use config-nacos/config-apollo sub-profile)
+# - Set DEMO_MYSQL_PASSWORD and DEMO_REDIS_PASSWORD when your local services require authentication.
+#
+# Activate with:
+#   --spring.profiles.active=full-middleware
+#   (Maven: mvn spring-boot:run -Pfull-middleware -Dspring-boot.run.profiles=full-middleware)
+#
+# WARNING: Do not combine with config-nacos AND config-apollo simultaneously.
+# Use either config-nacos or config-apollo as a sub-profile, e.g.:
+#   --spring.profiles.active=full-middleware,config-nacos
+#   --spring.profiles.active=full-middleware,config-apollo
+# ============================================================================
+
+spring:
+  # Clear default profile exclusions so real middleware auto-configurations can activate.
+  autoconfigure:
+    exclude: []
+  datasource:
+    url: ${DEMO_MYSQL_URL:jdbc:mysql://127.0.0.1:3306/microservice_framework_demo?useUnicode=true&characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    username: ${DEMO_MYSQL_USERNAME:dev}
+    password: ${DEMO_MYSQL_PASSWORD:}
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 1
+      connection-timeout: 30000
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.MySQLDialect
+  h2:
+    console:
+      enabled: false
+      path: /h2-console
+  data:
+    redis:
+      host: ${DEMO_REDIS_HOST:127.0.0.1}
+      port: ${DEMO_REDIS_PORT:6379}
+      password: ${DEMO_REDIS_PASSWORD:}
+      database: ${DEMO_REDIS_DATABASE:0}
+      timeout: 3s
+  kafka:
+    bootstrap-servers: ${DEMO_KAFKA_BOOTSTRAP_SERVERS:127.0.0.1:9092}
+    template:
+      default-topic: ${DEMO_KAFKA_TOPIC:microservice-framework-demo-topic}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all
+      retries: 3
+    consumer:
+      group-id: ${DEMO_KAFKA_GROUP_ID:microservice-framework-demo}
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+  elasticsearch:
+    uris: ${DEMO_ELASTICSEARCH_URIS:http://127.0.0.1:9200}
+
+server:
+  port: ${DEMO_SERVER_PORT:18080}
+
+# Microservice Framework Configuration — all starters enabled with real middleware
+framework:
+  common:
+    time:
+      time-zone: Asia/Shanghai
+    id:
+      worker-id: 1
+    context:
+      enabled: true
+
+  json:
+    provider: jackson
+
+  web:
+    response:
+      include-timestamp: true
+      include-request-id: true
+    exception:
+      enabled: true
+      include-stack-trace: false
+    request-id:
+      enabled: true
+      header-name: X-Request-ID
+
+  logging:
+    async:
+      enabled: true
+      queue-size: 256
+      discarding-threshold: 0
+    flood-protection:
+      enabled: true
+      rate: 10
+      burst-capacity: 100
+    masking:
+      enabled: true
+    trace-sampling:
+      enabled: true
+      level-for-unsampled: INFO
+
+  observability:
+    tracing:
+      sampling-probability: 1.0
+    baggage:
+      enabled: true
+      correlation-fields:
+        - user-id
+        - tenant-id
+        - request-source
+
+  security:
+    enabled: true
+    jwt:
+      enabled: false
+    cors:
+      enabled: true
+      allowed-origins:
+        - "*"
+      allowed-methods:
+        - GET
+        - POST
+        - PUT
+        - DELETE
+    path:
+      permit-paths:
+        - /demo/**
+        - /test/**
+        - /perf/**
+        - /actuator/**
+        - /api/demo/**
+
+  async:
+    pool:
+      core-size: 4
+      max-size: 8
+      queue-capacity: 256
+      thread-name-prefix: async-
+      rejection: CALLER_RUNS
+    context:
+      propagation-enabled: true
+    shutdown:
+      await-termination: true
+      await-termination-seconds: 30
+
+  # Redis — real connection
+  redis:
+    enabled: true
+    cache:
+      enabled: true
+      default-ttl: 3600
+
+  database:
+    enabled: true
+    data-source:
+      pool-size: 5
+      timeout: 30000
+    sharding:
+      enabled: false
+    rw:
+      enabled: false
+    transaction:
+      default-timeout: 30
+      default-isolation: READ_COMMITTED
+    outbox:
+      enabled: true
+      auto-create-table: true
+      table-name: demo_outbox_event
+      max-fetch-size: 100
+
+  audit:
+    enabled: true
+    storage:
+      type: JDBC
+      auto-create-table: true
+      table-name: demo_audit_event
+    b-side:
+      mandatory: false
+
+  field-encryption:
+    enabled: true
+    algorithm:
+      name: AES/GCM/NoPadding
+      key-size: 256
+
+  # Kafka — real connection
+  # Requires Maven full-middleware profile for spring-kafka runtime dependency:
+  #   mvn spring-boot:run -Pfull-middleware -Dspring-boot.run.profiles=full-middleware
+  kafka:
+    enabled: true
+    producer:
+      acks: all
+      retries: 3
+    consumer:
+      auto-commit: false
+      concurrency: 3
+      poll-timeout-ms: 10000
+    dead-letter:
+      enabled: true
+    idempotency:
+      enabled: true
+
+  # Object Storage — no external object storage is provided in the local
+  # acceptance environment, so the demo uses its embedded provider.
+  object-storage:
+    enabled: true
+    provider: embedded
+    connection:
+      bucket: demo-bucket
+
+  # Elasticsearch — real connection
+  elasticsearch:
+    enabled: true
+    connection:
+      uris:
+        - ${DEMO_ELASTICSEARCH_URIS:http://127.0.0.1:9200}
+    index:
+      auto-create: true
+      refresh-policy: IMMEDIATE
+    query:
+      max-from-size: 10000
+
+  # Drools — real rule engine
+  drools:
+    provider: embedded
+    rule:
+      enabled: true
+
+  # XXL-Job — no xxl-job admin service is provided in the local acceptance
+  # environment, so the demo validates the starter's embedded execution/idempotency path.
+  xxl-job:
+    enabled: true
+    provider: embedded
+
+  # Config Center — disabled by default, use sub-profile to enable one
+  nacos:
+    enabled: false
+  apollo:
+    enabled: false
+
+# Logging Configuration
+logging:
+  level:
+    root: INFO
+    com.microservice.demo: DEBUG
+    org.springframework.web: INFO
+
+# Management Endpoints
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics,loggers
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: always
+    loggers:
+      enabled: true
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+  tracing:
+    sampling:
+      probability: 1.0
+    baggage:
+      remote-fields:
+        - user-id
+        - tenant-id
+        - request-source
+  info:
+    env:
+      enabled: true
+
+# Application Info
+info:
+  app:
+    name: Microservice Framework Demo (Full Middleware)
+    description: Demonstration application with all starters using real middleware connections
+    version: 1.0.0-SNAPSHOT
+    profile: full-middleware

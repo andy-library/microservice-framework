@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Logback 完整配置示例
+    =====================
+    
+    此文件包含所有可用的配置选项和详细说明。
+    
+    使用方法：
+    1. 将此文件复制到您的应用项目的 src/main/resources/ 目录
+    2. 重命名为 logback-spring.xml
+    3. 根据需求调整配置项
+    
+    注意：
+    - 应用中的 logback-spring.xml 会覆盖 starter 中的默认配置
+    - 建议保留基本的 JSON 格式和 tracing 集成
+-->
+<configuration>
+    <!-- ================================================================
+         Spring Boot 配置支持
+         说明：允许在 logback 中使用 Spring Boot 的配置属性
+         ================================================================ -->
+    <springProperty scope="context" name="APP_NAME" source="spring.application.name" defaultValue="application"/>
+    <springProperty scope="context" name="LOG_LEVEL" source="logging.level.root" defaultValue="INFO"/>
+    
+    <!-- ================================================================
+         框架配置属性
+         ================================================================ -->
+    <springProperty scope="context" name="ASYNC_ENABLED" source="framework.logging.async.enabled" defaultValue="true"/>
+    <springProperty scope="context" name="ASYNC_QUEUE_SIZE" source="framework.logging.async.queue-size" defaultValue="256"/>
+    <springProperty scope="context" name="ASYNC_DISCARDING_THRESHOLD" source="framework.logging.async.discarding-threshold" defaultValue="0"/>
+
+    <!-- ================================================================
+         JSON 日志格式配置（logstash-logback-encoder）
+         说明：使用 LogstashEncoder 输出 JSON 格式日志
+         
+         配置说明：
+         - encoding: 字符编码（UTF-8 为默认值，无需显式指定；如需指定使用 <encoding>UTF-8</encoding>，而非 <charset>）
+         - customFields: 自定义字段，可以添加应用标识等信息
+         - includeMdcKeyName: 包含 MDC 字段，用于分布式追踪
+         - includeContext: 包含上下文信息
+         - includeCallerData: 包含调用者信息（性能开销大）
+         - throwableConverter: 堆栈跟踪格式化
+         ================================================================ -->
+    <appender name="JSON_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <!-- LogstashEncoder 默认使用 UTF-8 编码，无需显式指定；如需其他编码请使用 <encoding> 而非 <charset> -->
+
+            <!-- 自定义字段 - 可添加环境、版本等信息 -->
+            <customFields>{"app":"${APP_NAME}"}</customFields>
+            
+            <!-- 包含 MDC 字段 - 用于分布式追踪和上下文传递 -->
+            <includeMdcKeyName>traceId</includeMdcKeyName>
+            <includeMdcKeyName>spanId</includeMdcKeyName>
+            <includeMdcKeyName>requestId</includeMdcKeyName>
+            <includeMdcKeyName>tenant-id</includeMdcKeyName>
+            <includeMdcKeyName>user-group</includeMdcKeyName>
+            <includeMdcKeyName>error.class</includeMdcKeyName>
+            <includeMdcKeyName>error.message</includeMdcKeyName>
+            <includeMdcKeyName>error.stack_hash</includeMdcKeyName>
+            <includeMdcKeyName>structured_data</includeMdcKeyName>
+            
+            <!-- 包含上下文信息 -->
+            <includeContext>true</includeContext>
+            
+            <!-- 包含调用者信息（性能开销较大，生产环境建议关闭） -->
+            <includeCallerData>false</includeCallerData>
+            
+            <!-- 堆栈跟踪配置 - 简化异常堆栈，提高可读性 -->
+            <throwableConverter class="net.logstash.logback.stacktrace.ShortenedThrowableConverter">
+                <maxDepthPerThrowable>30</maxDepthPerThrowable>
+                <maxLength>2048</maxLength>
+                <shortenedClassNameLength>20</shortenedClassNameLength>
+                <exclude>sun\.reflect\..*</exclude>
+                <exclude>net\.sf\.cglib\..*</exclude>
+                <exclude>org\.springframework\.cglib\..*</exclude>
+                <exclude>org\.springframework\.aop\..*</exclude>
+                <exclude>java\.lang\.reflect\.Method</exclude>
+                <rootCauseFirst>true</rootCauseFirst>
+            </throwableConverter>
+        </encoder>
+    </appender>
+
+    <!-- ================================================================
+         异步 Appender 配置
+         说明：使用 AsyncAppender 提高日志性能
+         
+         配置说明：
+         - queueSize: 队列大小，默认 256
+         - discardingThreshold: 丢弃阈值，0 表示不丢弃
+         - includeCallerData: 包含调用者信息
+         - neverBlock: false 表示队列满时阻塞，确保不丢失日志
+         
+         性能优化建议：
+         - 生产环境建议启用异步日志
+         - 如果日志量大，可以适当增加 queueSize
+         - 如果可以接受少量日志丢失，可以设置 discardingThreshold > 0
+         ================================================================ -->
+    <appender name="ASYNC_JSON_CONSOLE" class="ch.qos.logback.classic.AsyncAppender">
+        <!-- 引用同步 Appender -->
+        <appender-ref ref="JSON_CONSOLE"/>
+        
+        <!-- 队列大小 -->
+        <queueSize>${ASYNC_QUEUE_SIZE}</queueSize>
+        
+        <!-- 丢弃阈值（0 表示不丢弃） -->
+        <discardingThreshold>${ASYNC_DISCARDING_THRESHOLD}</discardingThreshold>
+        
+        <!-- 包含调用者信息 -->
+        <includeCallerData>false</includeCallerData>
+        
+        <!-- 不丢失日志 -->
+        <neverBlock>false</neverBlock>
+    </appender>
+
+    <!-- ================================================================
+         Root Logger 配置
+         说明：根据配置选择同步或异步 Appender
+         
+         配置说明：
+         - level: 日志级别 (TRACE, DEBUG, INFO, WARN, ERROR)
+         - 条件判断：根据 framework.logging.async.enabled 决定使用同步还是异步
+         
+         环境建议：
+         - 开发环境：可以使用同步日志，便于调试
+         - 测试环境：建议使用异步日志
+         - 生产环境：必须使用异步日志
+         ================================================================ -->
+    <root level="${LOG_LEVEL}">
+        <if condition='property("ASYNC_ENABLED").equals("true")'>
+            <then>
+                <appender-ref ref="ASYNC_JSON_CONSOLE"/>
+            </then>
+            <else>
+                <appender-ref ref="JSON_CONSOLE"/>
+            </else>
+        </if>
+    </root>
+
+    <!-- ================================================================
+         框架日志级别配置
+         说明：降低框架日志噪音
+         
+         可以根据需要调整各个框架的日志级别：
+         - DEBUG: 开发调试时使用
+         - INFO: 生产环境推荐
+         - WARN: 只关注警告和错误
+         ================================================================ -->
+    <logger name="org.springframework" level="INFO"/>
+    <logger name="org.springframework.boot" level="INFO"/>
+    <logger name="org.springframework.web" level="INFO"/>
+    <logger name="org.springframework.security" level="INFO"/>
+    <logger name="org.hibernate" level="INFO"/>
+    <logger name="com.zaxxer.hikari" level="INFO"/>
+    <logger name="io.micrometer" level="INFO"/>
+    <logger name="io.opentelemetry" level="INFO"/>
+
+    <!-- ================================================================
+         优雅停机配置
+         说明：确保应用关闭时日志队列被完全消费
+         
+         配置说明：
+         - delay: 延迟关闭时间（毫秒），给日志队列留出消费时间
+         
+         建议：
+         - 开发环境：500-1000ms
+         - 生产环境：1000-2000ms
+         ================================================================ -->
+    <shutdownHook class="ch.qos.logback.core.hook.DelayingShutdownHook">
+        <delay>1000</delay>
+    </shutdownHook>
+</configuration>

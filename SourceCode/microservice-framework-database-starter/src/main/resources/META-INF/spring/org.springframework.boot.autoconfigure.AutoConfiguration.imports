@@ -1,0 +1,6 @@
+com.microservice.framework.database.autoconfigure.DatabaseDataSourceAutoConfiguration
+com.microservice.framework.database.autoconfigure.DatabaseProductionSafetyAutoConfiguration
+com.microservice.framework.database.autoconfigure.DatabaseTransactionAutoConfiguration
+com.microservice.framework.database.autoconfigure.ShardingSphereAutoConfiguration
+com.microservice.framework.database.autoconfigure.MigrationAutoConfiguration
+com.microservice.framework.database.autoconfigure.OutboxAutoConfiguration

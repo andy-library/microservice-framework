@@ -1,0 +1,41 @@
+# Maven build output
+target/
+.flattened-pom.xml
+
+# Java build artifacts
+*.class
+*.jar
+*.war
+*.nar
+*.ear
+
+# Logs and test reports
+*.log
+*.jtl
+hs_err_pid*
+
+# Local configuration and secrets
+.env
+.env.*
+*.local
+application-local.yml
+application-local.yaml
+application-local.properties
+
+# IDE and local workspace files
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+.settings/
+.project
+.classpath
+
+# Local assistant/tooling state
+.claude/settings.local.json
+AGENT.MD
+
+# OS files
+.DS_Store
+Thumbs.db

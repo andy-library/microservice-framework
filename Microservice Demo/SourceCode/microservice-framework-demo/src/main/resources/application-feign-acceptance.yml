@@ -1,0 +1,22 @@
+framework:
+  feign:
+    enabled: true
+    connection:
+      connect-timeout: 500
+      read-timeout: 100
+      max-connections: 123
+      max-connections-per-route: 45
+      connection-time-to-live: 30000
+    retry:
+      enabled: true
+      max-retries: 2
+      retry-interval: 10
+    context:
+      propagation-enabled: true
+      propagate-keys:
+        - requestId
+        - userId
+        - traceId
+    service-identity:
+      enabled: true
+      service-name: microservice-framework-demo

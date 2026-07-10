@@ -1,0 +1,44 @@
+name: Maven Verify
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+    branches:
+      - main
+      - master
+
+jobs:
+  verify:
+    name: Verify Parent, Starters, And Demo
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Verify parent and install framework BOMs
+        working-directory: SourceCode/microservice-framework-parent
+        run: mvn -B clean install
+
+      - name: Verify starters
+        shell: bash
+        run: |
+          set -euo pipefail
+          for module in SourceCode/microservice-framework-*-starter; do
+            echo "Verifying ${module}"
+            (cd "${module}" && mvn -B clean verify)
+          done
+
+      - name: Verify demo
+        working-directory: Microservice Demo/SourceCode/microservice-framework-demo
+        run: mvn -B clean verify

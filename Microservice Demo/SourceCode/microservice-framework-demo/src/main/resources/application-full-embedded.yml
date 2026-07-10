@@ -1,0 +1,293 @@
+# ============================================================================
+# Full Embedded Profile
+# ============================================================================
+# All starters enabled with in-memory/embedded providers.
+# No middleware dependencies required — everything runs in-memory.
+#
+# Activate with: --spring.profiles.active=full-embedded
+#
+# Design notes:
+# - Redis/Kafka/ObjectStorage/Drools/XXL-Job/Elasticsearch all use embedded providers
+# - Spring Boot Redis/Kafka auto-configs are still excluded because their
+#   RedisConnectionFactory/KafkaTemplate require real middleware connections;
+#   framework starter auto-configs participate gracefully:
+#   Redis: backs off via @ConditionalOnBean(RedisConnectionFactory) + @ConditionalOnMissingBean
+#          for embedded overrides
+#   Kafka: auto-skips via @ConditionalOnClass(name-based) when spring-kafka off classpath;
+#          embedded KafkaPublisher handles messaging independently
+# - Elasticsearch: Spring Boot auto-configs excluded (no ES client); framework auto-config
+#   has @ConditionalOnClass(ElasticsearchTemplate) which is satisfied, but @ConditionalOnMissingBean
+#   backs off for embedded beans
+# - H2 database provides embedded persistence
+# ============================================================================
+
+spring:
+  # Auto-configure exclusions — only exclude Spring Boot auto-configs that
+  # require real middleware connections; framework starters participate
+  # gracefully via @ConditionalOnBean / @ConditionalOnMissingBean / @ConditionalOnClass
+  autoconfigure:
+    exclude:
+      # Redis: RedisConnectionFactory is on classpath but no real server
+      # Exclude only Spring Boot auto-configs (no RedisConnectionFactory bean);
+      # framework RedisAutoConfiguration stays active but backs off:
+      # redisTemplate/stringRedisTemplate via @ConditionalOnBean(RedisConnectionFactory),
+      # other beans via @ConditionalOnMissingBean for embedded overrides
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration
+      # Kafka: spring-kafka excluded from compile scope → Spring Boot auto-config excluded;
+      # framework KafkaAutoConfiguration has @ConditionalOnClass(name-based) so it auto-skips
+      # when KafkaTemplate is not on classpath; embedded KafkaPublisher handles messaging independently
+      - org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
+      # Elasticsearch: no ES client available → exclude Spring Boot auto-configs;
+      # framework auto-config backs off for embedded beans via @ConditionalOnMissingBean
+      - org.springframework.boot.autoconfigure.elasticsearch.ElasticsearchRestClientAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchDataAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchRepositoriesAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.elasticsearch.ReactiveElasticsearchRepositoriesAutoConfiguration
+
+  datasource:
+    url: jdbc:h2:mem:demo;DB_CLOSE_DELAY=-1;MODE=MySQL
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+# Microservice Framework Configuration — all starters enabled with embedded providers
+framework:
+  # Common Starter
+  common:
+    time:
+      time-zone: Asia/Shanghai
+    id:
+      worker-id: 1
+    context:
+      enabled: true
+
+  # JSON Starter
+  json:
+    provider: jackson
+
+  # Web Starter
+  web:
+    response:
+      include-timestamp: true
+      include-request-id: true
+    exception:
+      enabled: true
+      include-stack-trace: false
+    request-id:
+      enabled: true
+      header-name: X-Request-ID
+
+  # Logging Starter
+  logging:
+    async:
+      enabled: true
+      queue-size: 256
+      discarding-threshold: 0
+    flood-protection:
+      enabled: true
+      rate: 10
+      burst-capacity: 100
+    masking:
+      enabled: true
+    trace-sampling:
+      enabled: true
+      level-for-unsampled: INFO
+
+  # Observability Starter
+  observability:
+    tracing:
+      sampling-probability: 1.0
+    baggage:
+      enabled: true
+      correlation-fields:
+        - user-id
+        - tenant-id
+        - request-source
+
+  # Security Starter
+  security:
+    enabled: true
+    jwt:
+      enabled: false
+    cors:
+      enabled: true
+      allowed-origins:
+        - "*"
+      allowed-methods:
+        - GET
+        - POST
+        - PUT
+        - DELETE
+    path:
+      permit-paths:
+        - /demo/**
+        - /test/**
+        - /perf/**
+        - /actuator/**
+        - /api/demo/**
+
+  # Async Starter
+  async:
+    pool:
+      core-size: 4
+      max-size: 8
+      queue-capacity: 256
+      thread-name-prefix: async-
+      rejection: CALLER_RUNS
+    context:
+      propagation-enabled: true
+    shutdown:
+      await-termination: true
+      await-termination-seconds: 30
+
+  # Redis Starter — ENABLED with embedded provider
+  redis:
+    enabled: true
+    provider: embedded
+    cache:
+      enabled: true
+      default-ttl: 3600
+
+  # Database Starter
+  database:
+    enabled: true
+    data-source:
+      pool-size: 5
+      timeout: 30000
+    sharding:
+      enabled: false
+    rw:
+      enabled: false
+    transaction:
+      default-timeout: 30
+      default-isolation: READ_COMMITTED
+    outbox:
+      enabled: true
+      auto-create-table: true
+      table-name: demo_outbox_event
+      max-fetch-size: 100
+
+  # Audit Starter
+  audit:
+    enabled: true
+    storage:
+      type: JDBC
+      auto-create-table: true
+      table-name: demo_audit_event
+    b-side:
+      mandatory: false
+
+  # Field Encryption Starter
+  field-encryption:
+    enabled: true
+    algorithm:
+      name: AES/GCM/NoPadding
+      key-size: 256
+
+  # Kafka Starter — embedded provider (no Kafka server needed)
+  kafka:
+    provider: embedded
+
+  # Object Storage Starter — embedded provider (no S3/MinIO needed)
+  object-storage:
+    enabled: true
+    provider: embedded
+    connection:
+      bucket: demo-bucket
+
+  # Drools Starter — ENABLED with embedded provider
+  drools:
+    provider: embedded
+    rule:
+      enabled: true
+
+  # XXL-Job Starter — embedded provider (no xxl-job admin needed)
+  xxl-job:
+    enabled: true
+    provider: embedded
+
+  # Elasticsearch Starter — embedded provider (no ES server needed)
+  elasticsearch:
+    enabled: true
+    provider: embedded
+    query:
+      max-from-size: 10000
+
+  # Config Center — disabled; ConfigGovernanceAutoConfiguration is now gated
+  # by both framework.nacos.enabled AND framework.config.enabled (or apollo + config),
+  # so with both nacos and apollo disabled, governance will not activate.
+  # Use config-nacos or config-apollo profile to activate individually.
+  nacos:
+    enabled: false
+  apollo:
+    enabled: false
+
+# Logging Configuration
+logging:
+  level:
+    root: INFO
+    com.microservice.demo: DEBUG
+    org.springframework.web: INFO
+
+# Management Endpoints
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics,loggers
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: always
+    loggers:
+      enabled: true
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+  tracing:
+    sampling:
+      probability: 1.0
+    baggage:
+      remote-fields:
+        - user-id
+        - tenant-id
+        - request-source
+  info:
+    env:
+      enabled: true
+  health:
+    redis:
+      enabled: false  # Embedded Redis — disable Spring Boot Redis health check
+
+# Application Info
+info:
+  app:
+    name: Microservice Framework Demo (Full Embedded)
+    description: Demonstration application with all starters using in-memory/embedded providers
+    version: 1.0.0-SNAPSHOT
+    profile: full-embedded
+  framework:
+    providers:
+      redis: embedded (InMemory)
+      kafka: embedded (ConcurrentLinkedQueue)
+      object-storage: embedded (ConcurrentHashMap)
+      drools: embedded (SimpleRuleEngine)
+      xxl-job: embedded (ConcurrentHashMap)
+      elasticsearch: embedded (InMemory)

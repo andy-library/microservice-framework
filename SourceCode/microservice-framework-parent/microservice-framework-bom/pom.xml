@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.microservice.framework</groupId>
+        <artifactId>microservice-framework-parent</artifactId>
+        <version>${revision}</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>microservice-framework-bom</artifactId>
+    <packaging>pom</packaging>
+
+    <name>Microservice Framework BOM</name>
+    <description>Framework Starter release train. This BOM manages exactly 19 official Starter versions and never introduces runtime dependencies.</description>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- 1. common-starter: 所有应用强制 -->
+            <dependency>
+                <groupId>com.microservice.framework</groupId>
+                <artifactId>microservice-framework-common-starter</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <!-- 2. json-starter: 所有应用强制 -->
+            <dependency>
+                <groupId>com.microservice.framework</groupId>
+                <artifactId>microservice-framework-json-starter</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <!-- 3. logging-starter: 所有应用强制 -->
+            <dependency>
+                <groupId>com.microservice.framework</groupId>
+                <artifactId>microservice-framework-logging-starter</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <!-- 4. nacos-starter: 与 Apollo 二选一 -->
+            <dependency>
+                <groupId>com.microservice.framework</groupId>
+                <artifactId>microservice-framework-nacos-starter</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <!-- 5. apollo-starter: 与 Nacos 二选一 -->
+            <dependency>
+                <groupId>com.microservice.framework</groupId>
+                <artifactId>microservice-framework-apollo-starter</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <!-- 6. observability-starter: 生产默认推荐 -->
+            <dependency>
+                <groupId>com.microservice.framework</groupId>
+                <artifactId>microservice-framework-observability-starter</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <!-- 7. database-starter: 按需 -->
+            <dependency>
+                <groupId>com.microservice.framework</groupId>
+                <artifactId>microservice-framework-database-starter</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <!-- 8. redis-starter: 按需 -->
+            <dependency>
+                <groupId>com.microservice.framework</groupId>
+                <artifactId>microservice-framework-redis-starter</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <!-- 9. kafka-starter: 按需 -->
+            <dependency>
+                <groupId>com.microservice.framework</groupId>
+                <artifactId>microservice-framework-kafka-starter</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <!-- 10. elasticsearch-starter: 按需 -->
+            <dependency>
+                <groupId>com.microservice.framework</groupId>
+                <artifactId>microservice-framework-elasticsearch-starter</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <!-- 11. async-starter: 按需 -->
+            <dependency>
+                <groupId>com.microservice.framework</groupId>
+                <artifactId>microservice-framework-async-starter</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <!-- 12. xxl-job-starter: 按需 -->
+            <dependency>
+                <groupId>com.microservice.framework</groupId>
+                <artifactId>microservice-framework-xxl-job-starter</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <!-- 13. web-starter: Web 应用默认 -->
+            <dependency>
+                <groupId>com.microservice.framework</groupId>
+                <artifactId>microservice-framework-web-starter</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <!-- 14. feign-starter: 微服务调用按需 -->
+            <dependency>
+                <groupId>com.microservice.framework</groupId>
+                <artifactId>microservice-framework-feign-starter</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <!-- 15. security-starter: Web 默认、其他按需 -->
+            <dependency>
+                <groupId>com.microservice.framework</groupId>
+                <artifactId>microservice-framework-security-starter</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <!-- 16. drools-starter: 按需 -->
+            <dependency>
+                <groupId>com.microservice.framework</groupId>
+                <artifactId>microservice-framework-drools-starter</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <!-- 17. audit-starter: B 端强制、其他按需 -->
+            <dependency>
+                <groupId>com.microservice.framework</groupId>
+                <artifactId>microservice-framework-audit-starter</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <!-- 18. field-encryption-starter: 按需 -->
+            <dependency>
+                <groupId>com.microservice.framework</groupId>
+                <artifactId>microservice-framework-field-encryption-starter</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <!-- 19. object-storage-starter: 按需 -->
+            <dependency>
+                <groupId>com.microservice.framework</groupId>
+                <artifactId>microservice-framework-object-storage-starter</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+</project>

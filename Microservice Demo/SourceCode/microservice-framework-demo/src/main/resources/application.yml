@@ -1,0 +1,244 @@
+spring:
+  application:
+    name: microservice-framework-demo
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration
+      - org.springframework.boot.autoconfigure.elasticsearch.ElasticsearchRestClientAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchDataAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchRepositoriesAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.elasticsearch.ReactiveElasticsearchRepositoriesAutoConfiguration
+  datasource:
+    url: jdbc:h2:mem:demo;DB_CLOSE_DELAY=-1;MODE=MySQL
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+  security:
+    user:
+      name: demo-user
+      password: demo-pass
+      roles:
+        - USER
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+# Microservice Framework Configuration
+framework:
+  # Common Starter Configuration
+  common:
+    time:
+      time-zone: Asia/Shanghai
+    id:
+      worker-id: 1
+    context:
+      enabled: true
+
+  # JSON Starter Configuration
+  json:
+    provider: jackson  # 默认 Jackson，可切换为 fastjson2
+
+  # Web Starter Configuration
+  web:
+    response:
+      include-timestamp: true
+      include-request-id: true
+    exception:
+      enabled: true
+      include-stack-trace: false
+    request-id:
+      enabled: true
+      header-name: X-Request-ID
+
+  # Logging Configuration
+  logging:
+    async:
+      enabled: true
+      queue-size: 256
+      discarding-threshold: 0
+    flood-protection:
+      enabled: true
+      rate: 10
+      burst-capacity: 100
+    masking:
+      enabled: true
+    trace-sampling:
+      enabled: true
+      level-for-unsampled: INFO
+
+  # Observability Configuration
+  observability:
+    tracing:
+      sampling-probability: 1.0  # 100% 采样用于演示
+    baggage:
+      enabled: true
+      correlation-fields:
+        - user-id
+        - tenant-id
+        - request-source
+
+  # Security Configuration (basic auth for demo)
+  security:
+    enabled: true
+    jwt:
+      enabled: false  # demo 不使用真实 JWT
+    cors:
+      enabled: true
+      allowed-origins:
+        - "*"
+      allowed-methods:
+        - GET
+        - POST
+        - PUT
+        - DELETE
+    path:
+      permit-paths:
+        - /demo/**
+        - /test/**
+        - /perf/**
+        - /actuator/**
+        - /api/demo/**
+
+  # Feign Configuration
+  feign:
+    service-identity:
+      enabled: true
+      service-name: ${spring.application.name}
+
+  # Async Configuration
+  async:
+    pool:
+      core-size: 4
+      max-size: 8
+      queue-capacity: 256
+      thread-name-prefix: async-
+      rejection: CALLER_RUNS
+    context:
+      propagation-enabled: true
+    shutdown:
+      await-termination: true
+      await-termination-seconds: 30
+
+  # Redis Configuration (conditional, disabled when no Redis available)
+  redis:
+    enabled: false
+    cache:
+      enabled: true
+      default-ttl: 3600
+
+  # Database Configuration (H2 for demo)
+  database:
+    enabled: true
+    data-source:
+      pool-size: 5
+      timeout: 30000
+    sharding:
+      enabled: false
+    rw:
+      enabled: false  # demo 使用单库 H2，不开读写分离
+    transaction:
+      default-timeout: 30
+      default-isolation: READ_COMMITTED
+
+  # Audit Configuration
+  audit:
+    enabled: true
+    b-side:
+      mandatory: false  # demo 不强制 B 端审计
+
+  # Field Encryption Configuration
+  field-encryption:
+    enabled: true
+    algorithm:
+      name: AES/GCM/NoPadding
+      key-size: 256
+
+  # Object Storage Configuration (mock for demo)
+  object-storage:
+    enabled: true
+    connection:
+      bucket: demo-bucket
+
+  # Drools Configuration (optional)
+  drools:
+    rule:
+      enabled: false  # demo 默认不启用 Drools 规则引擎
+
+  # Config Center — disabled by default; ConfigGovernanceAutoConfiguration is now gated
+  # by both framework.nacos.enabled AND framework.config.enabled (or apollo + config),
+  # so with both nacos and apollo disabled, governance will not activate.
+  # Enable individually via config-nacos or config-apollo profile.
+  nacos:
+    enabled: false
+  apollo:
+    enabled: false
+
+# Logging Configuration
+logging:
+  level:
+    root: INFO
+    com.microservice.demo: DEBUG
+    org.springframework.web: INFO
+
+# Management Endpoints
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics,loggers
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: always
+    loggers:
+      enabled: true
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+  tracing:
+    sampling:
+      probability: 1.0
+    baggage:
+      remote-fields:
+        - user-id
+        - tenant-id
+        - request-source
+  info:
+    env:
+      enabled: true
+
+# Application Info
+info:
+  app:
+    name: Microservice Framework Demo
+    description: Demonstration application for all Microservice Framework starters
+    version: 1.0.0-SNAPSHOT
+  framework:
+    starters:
+      - microservice-framework-common-starter
+      - microservice-framework-json-starter
+      - microservice-framework-web-starter
+      - microservice-framework-logging-starter
+      - microservice-framework-observability-starter
+      - microservice-framework-async-starter
+      - microservice-framework-security-starter
+      - microservice-framework-redis-starter
+      - microservice-framework-database-starter
+      - microservice-framework-kafka-starter
+      - microservice-framework-audit-starter
+      - microservice-framework-field-encryption-starter
+      - microservice-framework-object-storage-starter

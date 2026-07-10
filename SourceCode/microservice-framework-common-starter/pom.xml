@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!-- ========================================================================
+         父POM继承
+         说明：继承 microservice-framework-parent（非 starter-parent）
+         原因：common-starter 是框架内部组件，不是业务应用
+         ======================================================================== -->
+    <parent>
+        <groupId>com.microservice.framework</groupId>
+        <artifactId>microservice-framework-parent</artifactId>
+        <version>${revision}</version>
+        <relativePath>../microservice-framework-parent/pom.xml</relativePath>
+    </parent>
+
+    <!-- ========================================================================
+         项目基本信息
+         ======================================================================== -->
+    <artifactId>microservice-framework-common-starter</artifactId>
+    <packaging>jar</packaging>
+
+    <name>Microservice Framework Common Starter</name>
+    <description>公共基础 Starter - 提供日期时间、分布式 ID、错误码、分页、金额、轻量上下文和通用工具</description>
+
+    <!-- ========================================================================
+         依赖管理
+         说明：导入 BOM 以获取内部组件和第三方库的版本管理
+         ======================================================================== -->
+    <dependencyManagement>
+        <dependencies>
+            <!-- 导入框架 BOM，获取内部组件版本 -->
+            <dependency>
+                <groupId>com.microservice.framework</groupId>
+                <artifactId>microservice-framework-bom</artifactId>
+                <version>${project.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <!-- 导入第三方依赖 BOM -->
+            <dependency>
+                <groupId>com.microservice.framework</groupId>
+                <artifactId>microservice-framework-dependencies</artifactId>
+                <version>${project.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <!-- ========================================================================
+         依赖声明
+         说明：所有依赖版本由 BOM 统一管理；Common 不依赖其他 Framework Starter
+         ======================================================================== -->
+    <dependencies>
+        <!-- ====================================================================
+             Spring Boot Starter
+             作用：提供 Spring Boot 核心自动配置能力
+             版本：由 spring-boot-dependencies 管理
+             ==================================================================== -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter</artifactId>
+        </dependency>
+
+        <!-- ====================================================================
+             Spring Boot Validation Starter
+             作用：启用 @ConfigurationProperties 参数校验，启动期拦截非法基础配置
+             版本：由 spring-boot-dependencies 管理
+             ==================================================================== -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+
+        <!-- ====================================================================
+             Spring Boot Configuration Processor
+             作用：生成配置元数据，支持 IDE 自动补全
+             可选：仅在开发时需要
+             ==================================================================== -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-configuration-processor</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- ====================================================================
+             Test Dependencies
+             ==================================================================== -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>

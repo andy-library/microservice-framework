@@ -1,0 +1,456 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!-- ========================================================================
+         项目基本信息
+         ======================================================================== -->
+    <groupId>com.microservice.framework</groupId>
+    <artifactId>microservice-framework-parent</artifactId>
+    <version>${revision}</version>
+    <packaging>pom</packaging>
+
+    <name>Microservice Framework Parent</name>
+    <description>统一基础框架 - 根父POM，定义全局构建规范和版本管理策略</description>
+
+    <!-- ========================================================================
+         全局属性定义
+         说明：这里定义的属性将被所有子模块继承
+         ======================================================================== -->
+    <properties>
+        <!-- 版本号管理：使用 ${revision} 配合 flatten-maven-plugin 实现 CI 友好的版本号注入 -->
+        <revision>1.0.0-SNAPSHOT</revision>
+
+        <!-- Java 编译版本：统一使用 JDK 21 -->
+        <java.version>21</java.version>
+        <maven.compiler.release>21</maven.compiler.release>
+        <maven.compiler.parameters>true</maven.compiler.parameters>
+
+        <!-- 项目编码：统一使用 UTF-8 -->
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+
+        <!-- Spring Boot 版本：作为整个技术栈的基础 -->
+        <spring-boot.version>3.3.13</spring-boot.version>
+
+        <!-- Spring Cloud 版本：微服务组件版本管理 -->
+        <spring-cloud.version>2023.0.6</spring-cloud.version>
+
+        <!-- Maven 插件版本：统一管理构建插件版本，避免子模块版本不一致 -->
+        <maven-source-plugin.version>3.3.0</maven-source-plugin.version>
+        <maven-javadoc-plugin.version>3.6.3</maven-javadoc-plugin.version>
+        <flatten-maven-plugin.version>1.6.0</flatten-maven-plugin.version>
+        <maven-compiler-plugin.version>3.13.0</maven-compiler-plugin.version>
+        <maven-enforcer-plugin.version>3.4.1</maven-enforcer-plugin.version>
+        <maven-surefire-plugin.version>3.2.5</maven-surefire-plugin.version>
+        <maven-failsafe-plugin.version>3.2.5</maven-failsafe-plugin.version>
+        <maven-invoker-plugin.version>3.7.0</maven-invoker-plugin.version>
+        <maven-clean-plugin.version>3.4.0</maven-clean-plugin.version>
+        <maven-install-plugin.version>3.1.3</maven-install-plugin.version>
+        <maven-deploy-plugin.version>3.1.3</maven-deploy-plugin.version>
+        <maven-site-plugin.version>3.12.1</maven-site-plugin.version>
+        <maven-resources-plugin.version>3.3.1</maven-resources-plugin.version>
+        <maven-jar-plugin.version>3.5.0</maven-jar-plugin.version>
+        <extra-enforcer-rules.version>1.8.0</extra-enforcer-rules.version>
+
+        <!-- Lombok 版本：统一管理 Lombok 版本，供子模块引用 -->
+        <lombok.version>1.18.42</lombok.version>
+    </properties>
+
+    <!-- ========================================================================
+         模块聚合
+         说明：此处聚合 Parent 项目的内部模块（由架构师统一管理）
+         注意：Starter 项目（如 logging-starter）是独立仓库，不在此聚合
+         ======================================================================== -->
+    <modules>
+        <!-- 第三方依赖版本管理模块 -->
+        <module>microservice-framework-dependencies</module>
+
+        <!-- 内部组件版本清单 (BOM) -->
+        <module>microservice-framework-bom</module>
+
+        <!-- 业务应用父POM (用户入口) -->
+        <module>microservice-framework-starter-parent</module>
+        
+        <!-- 
+            注意：Starter 项目（如 logging-starter, observability-starter 等）
+            是独立仓库，不在此聚合。它们通过 <parent> 继承 starter-parent，
+            并通过 Maven 仓库获取依赖。
+        -->
+    </modules>
+
+
+    <!-- ========================================================================
+         构建配置
+         ======================================================================== -->
+    <build>
+        <!-- ====================================================================
+             插件管理 (pluginManagement)
+             说明：在这里定义插件的版本和默认配置，子模块只需声明 groupId 和 artifactId 即可继承
+             ==================================================================== -->
+        <pluginManagement>
+            <plugins>
+                <!-- flatten-maven-plugin: 解决 ${revision} 占位符问题
+                     作用：在 install/deploy 阶段将 ${revision} 替换为实际版本号
+                     原因：Maven 默认不支持动态版本号，此插件让 CI/CD 可以通过 -Drevision=x.y.z 注入版本 -->
+                <plugin>
+                    <groupId>org.codehaus.mojo</groupId>
+                    <artifactId>flatten-maven-plugin</artifactId>
+                    <version>${flatten-maven-plugin.version}</version>
+                    <configuration>
+                        <!-- 更新 pom.xml 文件 -->
+                        <updatePomFile>true</updatePomFile>
+                        <!-- 仅解析 CI 友好的占位符 (${revision}, ${sha1}, ${changelist}) -->
+                        <flattenMode>resolveCiFriendliesOnly</flattenMode>
+                    </configuration>
+                    <executions>
+                        <!-- 在 process-resources 阶段执行 flatten -->
+                        <execution>
+                            <id>flatten</id>
+                            <phase>process-resources</phase>
+                            <goals><goal>flatten</goal></goals>
+                        </execution>
+                        <!-- 在 clean 阶段清理生成的 .flattened-pom.xml -->
+                        <execution>
+                            <id>flatten.clean</id>
+                            <phase>clean</phase>
+                            <goals><goal>clean</goal></goals>
+                        </execution>
+                    </executions>
+                </plugin>
+
+                <!-- maven-source-plugin: 生成源码 JAR
+                     作用：将源代码打包成 *-sources.jar
+                     原因：便于 IDE 调试和代码溯源，符合开源规范 -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-source-plugin</artifactId>
+                    <version>${maven-source-plugin.version}</version>
+                </plugin>
+
+                <!-- maven-javadoc-plugin: 生成 JavaDoc JAR
+                     作用：将 JavaDoc 文档打包成 *-javadoc.jar
+                     原因：提供 API 文档，符合开源规范 -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-javadoc-plugin</artifactId>
+                    <version>${maven-javadoc-plugin.version}</version>
+                </plugin>
+
+                <!-- maven-compiler-plugin: Java 编译器配置
+                     作用：配置 Java 编译版本和参数名保留
+                     原因：确保所有模块使用统一的 JDK 版本编译，并保留方法参数名供 Spring 使用 -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <version>${maven-compiler-plugin.version}</version>
+                    <configuration>
+                        <release>${maven.compiler.release}</release>
+                        <parameters>${maven.compiler.parameters}</parameters>
+                        <encoding>${project.build.sourceEncoding}</encoding>
+                    </configuration>
+                </plugin>
+
+                <!-- maven-enforcer-plugin: 架构守护
+                     作用：强制执行构建规则，防止环境不一致、依赖冲突和安全风险
+                     原因：保障团队开发环境统一，确保制品质量和安全性 -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-enforcer-plugin</artifactId>
+                    <version>${maven-enforcer-plugin.version}</version>
+                    <dependencies>
+                        <!-- extra-enforcer-rules: 提供额外规则（重复类检测等） -->
+                        <dependency>
+                            <groupId>org.codehaus.mojo</groupId>
+                            <artifactId>extra-enforcer-rules</artifactId>
+                            <version>${extra-enforcer-rules.version}</version>
+                        </dependency>
+                    </dependencies>
+                    <executions>
+                        <!-- 基线版本校验 -->
+                        <execution>
+                            <id>enforce-versions</id>
+                            <goals>
+                                <goal>enforce</goal>
+                            </goals>
+                            <configuration>
+                                <rules>
+                                    <requireMavenVersion>
+                                        <version>[3.9.0,)</version>
+                                        <message>Maven version must be at least 3.9.0. Older versions lack proper support for flatten-maven-plugin and JDK 21.</message>
+                                    </requireMavenVersion>
+                                    <requireJavaVersion>
+                                        <version>[21,)</version>
+                                        <message>Project must be compiled with Java 21 or higher.</message>
+                                    </requireJavaVersion>
+                                    <!-- 依赖收敛：同一依赖不得出现不同版本 -->
+                                    <DependencyConvergence/>
+                                    <!-- 解析版本不得低于声明上限 -->
+                                    <requireUpperBoundDeps/>
+                                    <!-- 所有插件必须声明版本 -->
+                                    <requirePluginVersions>
+                                        <message>All plugins must have explicitly declared versions. Do not rely on Maven super-POM defaults.</message>
+                                    </requirePluginVersions>
+                                    <!-- 重复类检测 -->
+                                    <banDuplicateClasses>
+                                        <ignoreWhenIdentical>true</ignoreWhenIdentical>
+                                        <ignoreClasses>
+                                            <ignoreClass>javax.*</ignoreClass>
+                                            <ignoreClass>sun.*</ignoreClass>
+                                            <ignoreClass>com.sun.*</ignoreClass>
+                                            <ignoreClass>org.w3c.*</ignoreClass>
+                                            <ignoreClass>org.aopalliance.*</ignoreClass>
+                                            <ignoreClass>org.apache.commons.logging.*</ignoreClass>
+                                        </ignoreClasses>
+                                        <message>Duplicate classes found on classpath. This usually indicates dependency conflicts or overlapping class ranges.</message>
+                                    </banDuplicateClasses>
+                                </rules>
+                            </configuration>
+                        </execution>
+                        <!-- 治理规则：禁止危险依赖、动态版本和未批准仓库 -->
+                        <execution>
+                            <id>enforce-governance</id>
+                            <goals>
+                                <goal>enforce</goal>
+                            </goals>
+                            <configuration>
+                                <rules>
+                                    <!-- 禁止动态版本（SNAPSHOT/LATEST/RELEASE）依赖声明 -->
+                                    <banDynamicVersions>
+                                        <allowSnapshots>true</allowSnapshots>
+                                        <message>Dynamic dependency versions (LATEST, RELEASE, version ranges) are not allowed. SNAPSHOT versions are permitted during development.</message>
+                                    </banDynamicVersions>
+                                    <!-- 禁止危险依赖 -->
+                                    <bannedDependencies>
+                                        <excludes>
+                                            <!-- Log4j 1.x: 已停止维护，存在安全漏洞 -->
+                                            <exclude>log4j:log4j</exclude>
+                                            <!-- SLF4J Log4j12 binding: 与 Spring Boot Logback 冲突 -->
+                                            <exclude>org.slf4j:slf4j-log4j12</exclude>
+                                            <!-- Fastjson v1: 已停止维护，存在反序列化漏洞 -->
+                                            <exclude>com.alibaba:fastjson</exclude>
+                                        </excludes>
+                                        <message>Banned dependencies detected. These libraries have known security vulnerabilities or conflict with framework defaults.</message>
+                                    </bannedDependencies>
+                                    <!-- 禁止未批准仓库
+                                         允许：Maven Central 和组织私有仓库
+                                         禁止：JCenter（已停服）和其他未验证仓库
+                                         注意：私有仓库地址应在 distributionManagement 配置后加入白名单 -->
+                                    <bannedRepositories>
+                                        <bannedRepositories>
+                                            <bannedRepository>jcenter*</bannedRepository>
+                                            <bannedRepository>google*</bannedRepository>
+                                        </bannedRepositories>
+                                        <bannedPluginRepositories>
+                                            <bannedPluginRepository>jcenter*</bannedPluginRepository>
+                                            <bannedPluginRepository>google*</bannedPluginRepository>
+                                        </bannedPluginRepositories>
+                                    </bannedRepositories>
+                                </rules>
+                            </configuration>
+                        </execution>
+                        <!-- 受保护版本属性校验
+                             作用：阻止业务应用覆盖 Framework Parent 定义的关键版本属性
+                             原因：Framework 统一管理技术栈版本，应用不得擅自降级或更改，
+                                   以保证所有应用运行在经过兼容性验证的版本基线上 -->
+                        <execution>
+                            <id>enforce-protected-versions</id>
+                            <goals>
+                                <goal>enforce</goal>
+                            </goals>
+                            <configuration>
+                                <rules>
+                                    <requireProperty>
+                                        <property>spring-boot.version</property>
+                                        <regex>3\.3\.13</regex>
+                                        <message>spring-boot.version is a protected Framework property and must not be overridden. The expected value is 3.3.13 as defined by Framework Parent. Overriding it breaks framework compatibility guarantees.</message>
+                                    </requireProperty>
+                                    <requireProperty>
+                                        <property>spring-cloud.version</property>
+                                        <regex>2023\.0\.6</regex>
+                                        <message>spring-cloud.version is a protected Framework property and must not be overridden. The expected value is 2023.0.6 as defined by Framework Parent. Overriding it breaks framework compatibility guarantees.</message>
+                                    </requireProperty>
+                                </rules>
+                            </configuration>
+                        </execution>
+                    </executions>
+                </plugin>
+
+                <!-- maven-surefire-plugin: 单元测试执行
+                     作用：配置单元测试运行，默认使用 JUnit 5 平台
+                     原因：统一测试执行规范，确保所有模块测试行为一致 -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <version>${maven-surefire-plugin.version}</version>
+                </plugin>
+
+                <!-- maven-failsafe-plugin: 集成测试执行
+                     作用：配置集成测试运行（IT 测试）
+                     原因：统一集成测试执行规范，与 Surefire 分离避免交叉影响 -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-failsafe-plugin</artifactId>
+                    <version>${maven-failsafe-plugin.version}</version>
+                </plugin>
+
+                <!-- spring-boot-maven-plugin: 可执行 JAR 打包
+                     作用：将应用打包成可执行的 Fat JAR
+                     注意：仅在 starter-parent 中激活，框架内部 Starter 不使用此插件 -->
+                <plugin>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-maven-plugin</artifactId>
+                    <version>${spring-boot.version}</version>
+                </plugin>
+
+                <!-- maven-invoker-plugin: 契约测试执行
+                     作用：使用 Maven Invoker 执行 src/it 下的消费方契约测试
+                     原因：验证 Parent/BOM/Starter-Parent 的消费方场景和负面约束 -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-invoker-plugin</artifactId>
+                    <version>${maven-invoker-plugin.version}</version>
+                    <configuration>
+                        <projectsDirectory>src/it</projectsDirectory>
+                        <cloneProjectsTo>${project.build.directory}/it</cloneProjectsTo>
+                        <failIfNoProjects>true</failIfNoProjects>
+                        <postBuildHookScript>verify</postBuildHookScript>
+                    </configuration>
+                    <executions>
+                        <execution>
+                            <id>integration-test</id>
+                            <goals>
+                                <goal>install</goal>
+                                <goal>run</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                </plugin>
+
+                <!-- Maven 生命周期插件版本声明
+                     作用：满足 requirePluginVersions 规则，确保所有绑定插件有显式版本
+                     原因：Maven 默认从 super-POM 继承版本，但 enforcer 规则禁止依赖默认值 -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-clean-plugin</artifactId>
+                    <version>${maven-clean-plugin.version}</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-install-plugin</artifactId>
+                    <version>${maven-install-plugin.version}</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-deploy-plugin</artifactId>
+                    <version>${maven-deploy-plugin.version}</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-site-plugin</artifactId>
+                    <version>${maven-site-plugin.version}</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-resources-plugin</artifactId>
+                    <version>${maven-resources-plugin.version}</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-jar-plugin</artifactId>
+                    <version>${maven-jar-plugin.version}</version>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+        
+        <!-- ====================================================================
+             全局插件 (plugins)
+             说明：这里声明的插件会在所有模块（包括父POM自身）中执行
+             ==================================================================== -->
+        <plugins>
+            <!-- flatten-maven-plugin: 必须在父POM中激活，以处理 ${revision} -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>flatten-maven-plugin</artifactId>
+            </plugin>
+
+            <!-- maven-enforcer-plugin: 必须在父POM中激活，以执行架构守护规则 -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+            </plugin>
+
+            <!-- maven-invoker-plugin: 仅在根 Parent 模块执行消费方契约测试
+                 注意：inherited=false 确保此插件不被子模块（dependencies/bom/starter-parent）继承
+                 原因：只有根 Parent 有 src/it 目录下的契约测试 fixture -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-invoker-plugin</artifactId>
+                <inherited>false</inherited>
+            </plugin>
+        </plugins>
+    </build>
+
+    <!-- ========================================================================
+         发布配置 (Distribution Management)
+         说明：定义 Maven 构建产物的发布目标仓库
+         注意：正式使用前需要取消注释并配置实际的仓库地址
+         ======================================================================== -->
+    <!--
+    <distributionManagement>
+        <repository>
+            <id>microservice-releases</id>
+            <name>Microservice Release Repository</name>
+            <url>https://maven.microservice.com/repository/releases</url>
+        </repository>
+        <snapshotRepository>
+            <id>microservice-snapshots</id>
+            <name>Microservice Snapshot Repository</name>
+            <url>https://maven.microservice.com/repository/snapshots</url>
+        </snapshotRepository>
+    </distributionManagement>
+    -->
+
+    <!-- ========================================================================
+         发布配置 (Profiles)
+         ======================================================================== -->
+    <profiles>
+        <!-- release Profile: 正式发布时激活 (mvn clean deploy -Prelease)
+             作用：生成源码包和 JavaDoc 包，符合 Maven Central 发布规范 -->
+        <profile>
+            <id>release</id>
+            <build>
+                <plugins>
+                    <!-- 生成源码 JAR -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-source-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>attach-sources</id>
+                                <goals>
+                                    <goal>jar-no-fork</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <!-- 生成 JavaDoc JAR -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-javadoc-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>attach-javadocs</id>
+                                <goals>
+                                    <goal>jar</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+</project>

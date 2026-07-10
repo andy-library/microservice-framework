@@ -1,0 +1,3 @@
+com.microservice.framework.web.autoconfigure.WebAutoConfiguration
+com.microservice.framework.web.autoconfigure.ExceptionHandlerAutoConfiguration
+com.microservice.framework.web.autoconfigure.RequestIdAutoConfiguration

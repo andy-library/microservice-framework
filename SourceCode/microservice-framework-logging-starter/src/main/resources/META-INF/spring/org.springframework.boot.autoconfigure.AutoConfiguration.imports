@@ -1,0 +1,5 @@
+com.microservice.framework.logging.autoconfigure.LoggingBaseAutoConfiguration
+com.microservice.framework.logging.autoconfigure.LoggingProductionSafetyAutoConfiguration
+com.microservice.framework.logging.autoconfigure.FloodProtectionAutoConfiguration
+com.microservice.framework.logging.autoconfigure.TraceSamplingAutoConfiguration
+com.microservice.framework.logging.autoconfigure.MaskingLoggingAutoConfiguration

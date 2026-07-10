@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!-- ========================================================================
+         父POM继承
+         说明：继承 microservice-framework-parent（非 starter-parent）
+         原因：feign-starter 是框架内部组件，不是业务应用
+         ======================================================================== -->
+    <parent>
+        <groupId>com.microservice.framework</groupId>
+        <artifactId>microservice-framework-parent</artifactId>
+        <version>${revision}</version>
+        <relativePath>../microservice-framework-parent/pom.xml</relativePath>
+    </parent>
+
+    <!-- ========================================================================
+         项目基本信息
+         ======================================================================== -->
+    <artifactId>microservice-framework-feign-starter</artifactId>
+    <packaging>jar</packaging>
+
+    <name>Microservice Framework Feign Starter</name>
+    <description>Feign Starter - 提供服务身份、上下文传播、连接超时、重试、熔断隔离等微服务调用治理能力</description>
+
+    <!-- ========================================================================
+         依赖管理
+         说明：导入 BOM 以获取内部组件和第三方库的版本管理
+         ======================================================================== -->
+    <dependencyManagement>
+        <dependencies>
+            <!-- 导入框架 BOM，获取内部组件版本 -->
+            <dependency>
+                <groupId>com.microservice.framework</groupId>
+                <artifactId>microservice-framework-bom</artifactId>
+                <version>${project.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <!-- 导入第三方依赖 BOM -->
+            <dependency>
+                <groupId>com.microservice.framework</groupId>
+                <artifactId>microservice-framework-dependencies</artifactId>
+                <version>${project.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <!-- ========================================================================
+         依赖声明
+         说明：所有依赖版本由 BOM 统一管理
+         ======================================================================== -->
+    <dependencies>
+        <!-- ====================================================================
+             Common Starter（强制依赖）
+             作用：提供 FrameworkContext、ContextKeys、ThreadLocalContextAdapter 等基础设施
+             版本：由 microservice-framework-bom 管理
+             ==================================================================== -->
+        <dependency>
+            <groupId>com.microservice.framework</groupId>
+            <artifactId>microservice-framework-common-starter</artifactId>
+        </dependency>
+
+        <!-- ====================================================================
+             JSON Starter（强制依赖）
+             作用：提供 JSON 序列化/反序列化能力，用于上下文传播时的数据编码
+             版本：由 microservice-framework-bom 管理
+             ==================================================================== -->
+        <dependency>
+            <groupId>com.microservice.framework</groupId>
+            <artifactId>microservice-framework-json-starter</artifactId>
+        </dependency>
+
+        <!-- ====================================================================
+             Spring Cloud OpenFeign（可选依赖）
+             作用：提供 Feign 声明式 HTTP 客户端，是本 Starter 的核心基础
+             可选：仅当项目引入 Spring Cloud OpenFeign 时激活自动配置
+             版本：由 spring-cloud-dependencies 管理（已在 Dependencies BOM 中导入）
+             ==================================================================== -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-openfeign</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- ====================================================================
+             OpenFeign Apache HttpClient（默认连接池客户端）
+             作用：为高并发内部服务调用提供连接复用能力，避免默认 URLConnection
+             在高流量场景下频繁建连。
+             ==================================================================== -->
+        <dependency>
+            <groupId>io.github.openfeign</groupId>
+            <artifactId>feign-httpclient</artifactId>
+        </dependency>
+
+        <!-- ====================================================================
+             Micrometer Core（可观测指标）
+             作用：在存在 MeterRegistry 时记录 Feign 调用耗时、状态码和异常指标。
+             ==================================================================== -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-core</artifactId>
+        </dependency>
+
+        <!-- ====================================================================
+             Spring Boot Starter Validation（强制依赖）
+             作用：启用 FeignProperties 的 Jakarta Bean Validation 配置校验
+             ==================================================================== -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+
+        <!-- ====================================================================
+             Logging Starter（可选依赖）
+             作用：提供结构化日志输出，增强 Feign 调用的日志追踪
+             可选：业务项目如需结构化日志可引入
+             版本：由 microservice-framework-bom 管理
+             ==================================================================== -->
+        <dependency>
+            <groupId>com.microservice.framework</groupId>
+            <artifactId>microservice-framework-logging-starter</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- ====================================================================
+             Observability Starter（可选依赖）
+             作用：提供分布式追踪能力，增强 Feign 调用的跨服务追踪
+             可选：业务项目如需 OpenTelemetry 追踪可引入
+             版本：由 microservice-framework-bom 管理
+             ==================================================================== -->
+        <dependency>
+            <groupId>com.microservice.framework</groupId>
+            <artifactId>microservice-framework-observability-starter</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- ====================================================================
+             Spring Boot Configuration Processor
+             作用：生成配置元数据，支持 IDE 自动补全
+             可选：仅在开发时需要
+             ==================================================================== -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-configuration-processor</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- ====================================================================
+             Test Dependencies
+             ==================================================================== -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>

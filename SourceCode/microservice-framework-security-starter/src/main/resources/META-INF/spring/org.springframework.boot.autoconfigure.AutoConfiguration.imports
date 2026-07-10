@@ -1,0 +1,2 @@
+com.microservice.framework.security.autoconfigure.FrameworkSecurityAutoConfiguration
+com.microservice.framework.security.autoconfigure.JwtAutoConfiguration

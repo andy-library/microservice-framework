@@ -1,0 +1,20 @@
+target/
+.flattened-pom.xml
+*.class
+*.jar
+*.war
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.settings/
+.project
+.classpath
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Maven
+.m2/

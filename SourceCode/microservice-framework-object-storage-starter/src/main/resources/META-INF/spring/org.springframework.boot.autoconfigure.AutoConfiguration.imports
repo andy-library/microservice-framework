@@ -1,0 +1,3 @@
+com.microservice.framework.objectstorage.autoconfigure.ObjectStorageAutoConfiguration
+com.microservice.framework.objectstorage.autoconfigure.S3ObjectStorageAutoConfiguration
+com.microservice.framework.objectstorage.autoconfigure.MinioObjectStorageAutoConfiguration

@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!-- ========================================================================
+         父POM继承
+         ======================================================================== -->
+    <parent>
+        <groupId>com.microservice.framework</groupId>
+        <artifactId>microservice-framework-parent</artifactId>
+        <version>${revision}</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <!-- ========================================================================
+         项目基本信息
+         ======================================================================== -->
+    <artifactId>microservice-framework-starter-parent</artifactId>
+    <packaging>pom</packaging>
+
+    <name>Microservice Framework Starter Parent</name>
+    <description>业务应用统一父POM - 所有业务项目的唯一入口，提供完整的依赖视图和构建能力</description>
+
+    <!-- ========================================================================
+         依赖管理 (dependencyManagement)
+         说明：聚合"外部依赖"和"内部组件"两个 BOM，为业务项目提供统一视图
+         ======================================================================== -->
+    <dependencyManagement>
+        <dependencies>
+            <!-- ================================================================
+                 导入外部依赖 BOM
+                 作用：引入 Spring Boot、Spring Cloud 等第三方库的版本管理
+                 ================================================================ -->
+            <dependency>
+                <groupId>com.microservice.framework</groupId>
+                <artifactId>microservice-framework-dependencies</artifactId>
+                <version>${project.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <!-- ================================================================
+                 导入内部组件 BOM
+                 作用：引入框架内部 Starter 的版本管理
+                 ================================================================ -->
+            <dependency>
+                <groupId>com.microservice.framework</groupId>
+                <artifactId>microservice-framework-bom</artifactId>
+                <version>${project.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+    
+    <!-- ========================================================================
+         构建配置
+         说明：为业务应用提供打包、运行等构建能力
+         ======================================================================== -->
+    <build>
+        <pluginManagement>
+            <plugins>
+                <!-- ============================================================
+                     Maven Compiler Plugin
+                     作用：为业务应用添加 Lombok 注解处理
+                     注意：版本和 release/parameters 配置从 root parent 继承，
+                           此处仅覆盖 annotationProcessorPaths
+                     ============================================================ -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <configuration>
+                        <annotationProcessorPaths>
+                            <path>
+                                <groupId>org.projectlombok</groupId>
+                                <artifactId>lombok</artifactId>
+                                <version>${lombok.version}</version>
+                            </path>
+                        </annotationProcessorPaths>
+                    </configuration>
+                </plugin>
+
+                <!-- ============================================================
+                     Spring Boot Maven Plugin
+                     作用：将业务应用打包成可执行的 Fat JAR (包含所有依赖)
+                     原因：业务应用需要独立运行，而框架 Starter 只是类库
+                     注意：版本从 root parent pluginManagement 继承，
+                           此处仅声明 executions。框架内部 Starter 不应
+                           继承此 parent，否则会被错误地打成可执行 JAR
+                     ============================================================ -->
+                <plugin>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-maven-plugin</artifactId>
+                    <executions>
+                        <execution>
+                            <goals>
+                                <!-- repackage: 将普通 JAR 重新打包成可执行 JAR -->
+                                <goal>repackage</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
+</project>
