@@ -20,6 +20,8 @@ All notable changes to Microservice Framework will be documented in this file. T
 ### Changed
 
 - Hardened Starter production boundaries, failure handling, security defaults, observability, and automated tests.
+- Updated Bouncy Castle to `1.84`, MinIO Java Client to `8.6.0`, and Commons Lang to `3.18.0` to remove known vulnerable dependency ranges.
+- Reworked the banned-dependency negative contract so security scanners do not treat an intentionally vulnerable Log4j 1.x fixture as a shipped dependency.
 - Standardized documentation with `Andy Yang` as author and removed internal process history from public requirements.
 - Unified all framework artifacts, consumer contracts, Demo dependencies, and displayed application metadata on version `1.0.0-alpha.1`.
 
@@ -31,3 +33,4 @@ All notable changes to Microservice Framework will be documented in this file. T
 
 - Artifacts are not yet published to Maven Central; consumers must build and install them locally.
 - This is a community preview and not a final compatibility commitment.
+- XXL-JOB `2.4.2` has a published low-severity SSRF advisory with no patched upstream version; deployments must restrict executor callback and network access according to the Security documentation.

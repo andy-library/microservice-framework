@@ -4,7 +4,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <!-- Contract #10(b): Declaring banned dependency (log4j:log4j) should fail enforcer rule. -->
+    <!-- Contract #10(b): Declaring a banned legacy JSON coordinate should fail the enforcer rule. -->
     <parent>
         <groupId>com.microservice.framework</groupId>
         <artifactId>microservice-framework-starter-parent</artifactId>
@@ -18,9 +18,9 @@
     <dependencies>
         <!-- This dependency is banned by enforcer governance rules -->
         <dependency>
-            <groupId>log4j</groupId>
-            <artifactId>log4j</artifactId>
-            <version>1.2.17</version>
+            <groupId>com.alibaba</groupId>
+            <artifactId>fastjson</artifactId>
+            <version>2.0.60</version>
         </dependency>
     </dependencies>
 </project>
