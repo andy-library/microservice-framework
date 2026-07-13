@@ -2,7 +2,7 @@
 
 Author: Andy Yang
 
-对应需求：[Nacos PRD](../../PRD/starters/nacos-starter-PRD.md)
+对应需求：[Nacos PRD](../../Requirements/starters/nacos-starter-PRD.md)
 
 ## 1. 技术栈
 

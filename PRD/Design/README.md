@@ -2,7 +2,7 @@
 
 Author: Andy Yang
 
-本目录是已冻结 PRD 进入开发前的技术设计与测试设计基线。实现必须同时满足对应 PRD、统一工程基线和组件设计。
+本目录公开当前实现采用的技术设计与测试基线。代码变更必须同步满足对应 PRD、统一工程基线和组件设计；演进方案应通过 Issue 或 ADR 评审后再纳入当前基线。
 
 ## 统一设计
 
@@ -37,4 +37,6 @@ Author: Andy Yang
 
 ## 开发准入
 
-组件开发前必须确认其设计文档中的依赖坐标已由 `microservice-framework-dependencies` 管理、公共 API 已评审、测试环境可获得。完成时必须通过设计文档中的全部测试层级和对应 PRD 验收矩阵。
+组件变更必须确认依赖坐标由 `microservice-framework-dependencies` 管理、公共 API 兼容性已评估、测试环境可获得，并通过设计文档中的全部适用测试层级和对应 PRD 验收矩阵。
+
+返回 [PRD 总入口](../README.md)。

@@ -2,7 +2,7 @@
 
 Author: Andy Yang
 
-对应需求：[XXL-JOB PRD](../../PRD/starters/xxl-job-starter-PRD.md)
+对应需求：[XXL-JOB PRD](../../Requirements/starters/xxl-job-starter-PRD.md)
 
 ## 1. 技术栈
 

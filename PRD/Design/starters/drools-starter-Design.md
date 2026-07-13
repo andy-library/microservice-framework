@@ -2,7 +2,7 @@
 
 Author: Andy Yang
 
-对应需求：[Drools PRD](../../PRD/starters/drools-starter-PRD.md)
+对应需求：[Drools PRD](../../Requirements/starters/drools-starter-PRD.md)
 
 ## 1. 技术栈
 

@@ -4,7 +4,7 @@
 
 面向生产级分布式系统的企业级 Java/Spring Boot 微服务应用基座。
 
-[English](./README-en.md) | [贡献指南](./CONTRIBUTING.md) | [安全策略](./SECURITY.md) | [路线图](./ROADMAP.md)
+[GitHub 首页](./README.md) | [English](./README-en.md) | [公开 PRD](./PRD/README.md) | [贡献指南](./CONTRIBUTING.md) | [安全策略](./SECURITY.md) | [路线图](./ROADMAP.md)
 
 ![Java](https://img.shields.io/badge/Java-21-blue)
 ![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.3.13-brightgreen)
@@ -22,6 +22,24 @@ Microservice Framework 是一套面向企业级微服务体系的 Java/Spring Bo
 - 提供独立 Demo 应用，通过 Controller API 验证每个 Starter 面向应用开发者暴露的能力。
 - 提供 JMeter 脚本和中英文性能报告，便于社区复现与扩展压测。
 - 面向企业中台、高并发 C 端应用和需要统一工程治理的 Spring Boot 微服务团队。
+
+## 开源愿景
+
+Microservice Framework 源于作者 Andy Yang 自 JDK 8 时代开始维护的一套企业级应用脚手架。它曾服务于多个实际项目，并在持续演进中积累了微服务开发、基础设施接入、工程治理和生产运行方面的实践经验。
+
+进入 AI 辅助软件工程时代后，项目在既有实践基础上进行了系统性的二次构建：重新梳理架构边界，统一 Parent、BOM 与 Starter 体系，并补充自动化测试、Demo 验收、真实中间件验证和开源工程规范。AI 参与需求整理、技术设计、代码实现、测试、审查和文档维护，维护者负责目标定义、架构约束、质量标准和最终验收。
+
+本项目开源有三个主要目标：
+
+1. 为社区提供一套可使用、可验证、可扩展的 Java 微服务应用基座，减少企业应用在通用技术能力上的重复建设。
+2. 通过真实项目反馈、社区贡献和持续验收，不断改进框架的完整性、可靠性、安全性和生产适用性。
+3. 探索 AI 驱动的软件工程模式：验证在明确需求、架构规则、测试标准和治理机制约束下，AI 能否持续承担基础框架的设计、开发、测试、审查和维护工作，降低项目对特定开发人员的依赖。
+
+后续项目变更将优先采用 AI 驱动的工程流程。AI 生成的变更仍必须经过自动化测试、Demo 实战验证、代码审查和维护者验收，不会因使用 AI 而降低质量、安全或兼容性标准。
+
+我们欢迎开发者运行 Demo、验证 Starter、提交问题、补充测试、审查 AI 生成的代码，并提出更适合生产环境的实现方案。社区反馈既用于完善框架，也将成为评估 AI 软件工程能力边界的重要依据。
+
+> 人定义目标、边界和验收标准，AI 执行主要工程工作，自动化证据与社区审查共同验证结果。
 
 ## 快速开始
 
@@ -47,6 +65,7 @@ mvn clean verify
 
 ```text
 Microservice/
+├── README.md
 ├── README-zh.md
 ├── README-en.md
 ├── LICENSE

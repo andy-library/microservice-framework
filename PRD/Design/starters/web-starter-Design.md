@@ -2,7 +2,7 @@
 
 Author: Andy Yang
 
-对应需求：[Web PRD](../../PRD/starters/web-starter-PRD.md)
+对应需求：[Web PRD](../../Requirements/starters/web-starter-PRD.md)
 
 ## 1. 技术栈
 

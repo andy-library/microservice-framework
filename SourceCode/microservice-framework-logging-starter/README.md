@@ -385,4 +385,4 @@ framework:
 ## 相关文档
 
 - [Observability Starter](../microservice-framework-observability-starter/README.md)
-- [Framework Demo](../microservice-framework-demo/README.md)
+- [Framework Demo](../../Microservice%20Demo/SourceCode/microservice-framework-demo/README.md)

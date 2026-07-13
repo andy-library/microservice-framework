@@ -2,7 +2,7 @@
 
 Author: Andy Yang
 
-对应需求：[Feign PRD](../../PRD/starters/feign-starter-PRD.md)
+对应需求：[Feign PRD](../../Requirements/starters/feign-starter-PRD.md)
 
 ## 1. 技术栈
 

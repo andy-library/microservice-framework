@@ -1,71 +1,56 @@
-# Microservice Framework 当前实现基线
+# Microservice Framework 当前实现范围
 
 Author: Andy Yang
 
 | 属性 | 内容 |
 | --- | --- |
-| 文档版本 | v1.0 |
-| 文档状态 | 当前实现基线 |
-| 代码位置 | `SourceCode`、`Microservice Demo/SourceCode` |
-| 实现范围 | Parent、BOM、19 个 Starter、Demo 应用 |
+| 文档版本 | v1.1 |
+| 文档状态 | 当前公开基线 |
+| 正式源码 | `SourceCode` |
+| 验收应用 | `Microservice Demo/SourceCode` |
 
-## 1. 正式源码模块
+## 1. 已交付制品
 
-| # | 项目 | 测试数 | 状态 |
-| --- | --- | --- | --- |
-| 1 | `microservice-framework-parent` | 9 契约 | BUILD SUCCESS |
-| 2 | `microservice-framework-common-starter` | 193 | BUILD SUCCESS |
-| 3 | `microservice-framework-json-starter` | 60 | BUILD SUCCESS |
-| 4 | `microservice-framework-logging-starter` | 98 | BUILD SUCCESS |
-| 5 | `microservice-framework-observability-starter` | 79 | BUILD SUCCESS |
-| 6 | `microservice-framework-nacos-starter` | 102 | BUILD SUCCESS |
-| 7 | `microservice-framework-apollo-starter` | 120 | BUILD SUCCESS |
-| 8 | `microservice-framework-database-starter` | 35 | BUILD SUCCESS |
-| 9 | `microservice-framework-redis-starter` | 74 | BUILD SUCCESS |
-| 10 | `microservice-framework-kafka-starter` | 25 | BUILD SUCCESS |
-| 11 | `microservice-framework-elasticsearch-starter` | 61 | BUILD SUCCESS |
-| 12 | `microservice-framework-async-starter` | 33 | BUILD SUCCESS |
-| 13 | `microservice-framework-xxl-job-starter` | 39 | BUILD SUCCESS |
-| 14 | `microservice-framework-web-starter` | 84 | BUILD SUCCESS |
-| 15 | `microservice-framework-feign-starter` | 60 | BUILD SUCCESS |
-| 16 | `microservice-framework-security-starter` | 58 | BUILD SUCCESS |
-| 17 | `microservice-framework-drools-starter` | 28 | BUILD SUCCESS |
-| 18 | `microservice-framework-audit-starter` | 32 | BUILD SUCCESS |
-| 19 | `microservice-framework-field-encryption-starter` | 33 | BUILD SUCCESS |
-| 20 | `microservice-framework-object-storage-starter` | 78 | BUILD SUCCESS |
-| 21 | `microservice-framework-demo` | 25 | BUILD SUCCESS |
+当前仓库包含一套 Parent 工程、Dependencies BOM、Framework BOM、Starter Parent、19 个正式 Starter，以及一个独立 Demo 应用。正式组件清单与引入策略以 [组件目录](./Framework-Component-Catalog.md) 为准。
 
-## 2. 验收基线
+## 2. Starter 统一实现契约
 
-- 全部 20 个项目 + Demo 的 `mvn clean verify` 全量回归通过
-- Parent 9 个契约 Fixture 全部通过（含 protected-version-override-fails）
-- Parent 三组 Enforcer 规则全部通过（enforce-versions、enforce-governance、enforce-protected-versions）
-- 总测试数约 1097 + 9 契约 + 25 Demo，0 失败
+每个 Starter 按其职责提供以下一种或多种能力：
 
-## 3. Starter 实现范围
+- 面向应用开发者的公共 API、注解和值对象。
+- 使用 `framework.*` 命名空间的类型安全配置。
+- 基于 Spring Boot 自动配置机制的条件装配。
+- 对缺失配置、冲突配置和不安全组合的启动期诊断。
+- 允许应用在明确边界内覆盖默认 Bean 或选择实现。
+- 覆盖公共契约、属性绑定、启停条件和关键失败边界的自动化测试。
 
-每个 Starter 实现了：
+具体公共能力和验收标准由各 [Starter PRD](./starters/README.md) 定义。
 
-- **公共 API 层**：核心接口和值对象
-- **Properties**：`@ConfigurationProperties(prefix = "framework.<name>")`
-- **自动配置**：`@AutoConfiguration` + 条件注解
-- **单元测试**：API 契约、属性绑定、自动配置激活/禁用
+## 3. 构建治理
 
-重型第三方能力通过 BOM、条件装配和 starter 独立配置进行治理，避免基础应用被无关运行时依赖污染。
+- Parent 不隐式引入运行时 Starter。
+- 第三方依赖与 Maven 插件版本由 Parent 和 Dependencies BOM 集中治理。
+- Framework BOM 管理正式 Starter 版本，应用无需逐个声明版本。
+- 受保护版本、依赖收敛和禁止依赖规则通过 Maven Enforcer 与消费方契约验证。
+- Starter 可独立构建和测试，Demo 用于验证跨 Starter 组合及应用侧调用方式。
 
-## 4. 构建治理基线
+## 4. 已实现边界
 
-- Parent 不引入运行时 Starter。
-- Spring Boot、Spring Cloud、Maven 插件和第三方依赖由 Parent 与 BOM 统一治理。
-- 受保护版本不得被业务应用覆盖。
-- Starter 必须支持独立构建、独立测试和自动配置条件验证。
-- Demo 应用用于验证 starter 面向应用开发者暴露的实际能力。
+- Logging 与 Observability 独立；Logging 是基础能力，Observability 按运行需要引入。
+- Nacos 与 Apollo 是互斥的配置中心方案，均可与 Kubernetes 配置来源组合。
+- Database 提供读写分离、分库分表、幂等和 Outbox 等机制，其中增强能力按配置显式启用。
+- Redis、Kafka、Elasticsearch、XXL-JOB、Drools 和对象存储按需引入。
+- Web、Security 与 Feign 保持独立，可按应用形态组合。
+- Audit 面向需要操作审计的应用引入；Field Encryption 面向敏感字段保护场景引入。
 
-## 5. 能力边界基线
+## 5. 验证入口
 
-- Logging 与 Observability 独立，Logging 为强制基础能力。
-- Nacos 与 Apollo 为二选一配置中心 starter。
-- Database 默认提供读写分离能力，分库分表、幂等和 Outbox 显式启用。
-- Redis、Kafka、Elasticsearch、XXL-JOB、Drools、对象存储按需引入。
-- Web 与 Security 保持独立，可在 Web 应用中组合使用。
-- Audit 面向 B 端管理类应用强制，其他应用按需。
+| 验证层 | 入口 | 目的 |
+| --- | --- | --- |
+| Parent 契约 | `SourceCode/microservice-framework-parent` | 验证版本、依赖和构建治理 |
+| Starter 验证 | 各 Starter 的 `mvn clean verify` | 验证公共 API、配置和自动装配 |
+| 组合验证 | `Microservice Demo/SourceCode/microservice-framework-demo` | 验证应用侧 Controller API 与跨组件组合 |
+| 真实中间件验证 | Demo 的 `real-middleware-acceptance` Profile | 验证外部协议和真实服务交互 |
+| 性能验证 | `Microservice Demo/Reports` | 保存可复现的 JMeter 脚本与报告 |
+
+精确测试数量和最近一次执行结果属于测试报告与 CI 运行信息，不在 PRD 中固化，避免随代码演进失真。

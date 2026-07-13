@@ -2,7 +2,7 @@
 
 Author: Andy Yang
 
-对应需求：[Kafka PRD](../../PRD/starters/kafka-starter-PRD.md)
+对应需求：[Kafka PRD](../../Requirements/starters/kafka-starter-PRD.md)
 
 ## 1. 技术栈
 

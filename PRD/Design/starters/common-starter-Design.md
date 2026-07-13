@@ -2,7 +2,7 @@
 
 Author: Andy Yang
 
-对应需求：[Common PRD](../../PRD/starters/common-starter-PRD.md)
+对应需求：[Common PRD](../../Requirements/starters/common-starter-PRD.md)
 
 ## 1. 技术栈
 
