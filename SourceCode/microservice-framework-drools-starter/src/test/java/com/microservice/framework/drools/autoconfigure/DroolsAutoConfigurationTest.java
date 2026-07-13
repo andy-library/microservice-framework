@@ -64,8 +64,8 @@ class DroolsAutoConfigurationTest {
             RuleVersion version = context.getBean(RuleVersion.class);
             assertThat(version.getGroupId()).isEqualTo("com.microservice.framework");
             assertThat(version.getArtifactId()).isEqualTo("drools-rules");
-            assertThat(version.getVersion()).isEqualTo("1.0.0-SNAPSHOT");
-            assertThat(version.getCoordinates()).isEqualTo("com.microservice.framework:drools-rules:1.0.0-SNAPSHOT");
+            assertThat(version.getVersion()).isEqualTo("1.0.0-alpha.1");
+            assertThat(version.getCoordinates()).isEqualTo("com.microservice.framework:drools-rules:1.0.0-alpha.1");
         });
     }
 

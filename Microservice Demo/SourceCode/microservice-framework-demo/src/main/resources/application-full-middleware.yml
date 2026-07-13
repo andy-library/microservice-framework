@@ -309,5 +309,5 @@ info:
   app:
     name: Microservice Framework Demo (Full Middleware)
     description: Demonstration application with all starters using real middleware connections
-    version: 1.0.0-SNAPSHOT
+    version: 1.0.0-alpha.1
     profile: full-middleware

@@ -281,7 +281,7 @@ info:
   app:
     name: Microservice Framework Demo (Full Embedded)
     description: Demonstration application with all starters using in-memory/embedded providers
-    version: 1.0.0-SNAPSHOT
+    version: 1.0.0-alpha.1
     profile: full-embedded
   framework:
     providers:

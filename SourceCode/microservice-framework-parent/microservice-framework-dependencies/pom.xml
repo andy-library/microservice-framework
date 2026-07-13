@@ -48,7 +48,7 @@
 
         <!-- 对象存储 -->
         <aws-sdk.version>2.29.45</aws-sdk.version>
-        <minio.version>8.5.14</minio.version>
+        <minio.version>8.6.0</minio.version>
 
         <!-- 任务调度 -->
         <xxl-job.version>2.4.2</xxl-job.version>
@@ -57,13 +57,13 @@
         <shardingsphere.version>5.5.1</shardingsphere.version>
         <checker-qual.version>3.41.0</checker-qual.version>
         <error-prone-annotations.version>2.27.0</error-prone-annotations.version>
-        <commons-lang3.version>3.15.0</commons-lang3.version>
+        <commons-lang3.version>3.18.0</commons-lang3.version>
         <snakeyaml.version>2.3</snakeyaml.version>
         <commons-logging.version>1.2</commons-logging.version>
         <antlr4-runtime.version>4.13.0</antlr4-runtime.version>
         <spring-cloud-alibaba.version>2023.0.3.4</spring-cloud-alibaba.version>
         <apollo-client.version>2.5.0</apollo-client.version>
-        <bouncycastle.version>1.78</bouncycastle.version>
+        <bouncycastle.version>1.84</bouncycastle.version>
         <commons-io.version>2.15.1</commons-io.version>
         <gson.version>2.11.0</gson.version>
         <protobuf-java.version>3.25.5</protobuf-java.version>

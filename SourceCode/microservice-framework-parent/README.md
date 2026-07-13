@@ -59,7 +59,7 @@ Microservice Framework Parent 是企业级微服务框架的构建与版本治�
 <parent>
     <groupId>com.microservice.framework</groupId>
     <artifactId>microservice-framework-starter-parent</artifactId>
-    <version>1.0.0-SNAPSHOT</version>
+    <version>1.0.0-alpha.1</version>
     <relativePath/>
 </parent>
 ```

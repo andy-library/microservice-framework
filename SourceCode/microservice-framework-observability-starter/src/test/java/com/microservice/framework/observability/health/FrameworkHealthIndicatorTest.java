@@ -22,7 +22,7 @@ class FrameworkHealthIndicatorTest {
             @Override
             protected Health doHealthCheck() {
                 return Health.up()
-                        .withDetail("version", "1.0.0-SNAPSHOT")
+                        .withDetail("version", "1.0.0-alpha.1")
                         .withDetail("module", "observability-starter")
                         .withDetail("startupTime", System.currentTimeMillis())
                         .build();
@@ -47,7 +47,7 @@ class FrameworkHealthIndicatorTest {
         assertNotNull(health.getDetails());
         assertTrue(health.getDetails().containsKey("version"),
                 "健康信息应包含版本");
-        assertEquals("1.0.0-SNAPSHOT", health.getDetails().get("version"));
+        assertEquals("1.0.0-alpha.1", health.getDetails().get("version"));
     }
 
     @Test

@@ -88,7 +88,7 @@ public class DroolsAutoConfiguration {
         return new RuleVersion(
                 "com.microservice.framework",
                 "drools-rules",
-                "1.0.0-SNAPSHOT",
+                "1.0.0-alpha.1",
                 properties.getRule().getRuleFiles().size());
     }
 
