@@ -48,7 +48,7 @@
 
         <!-- 对象存储 -->
         <aws-sdk.version>2.29.45</aws-sdk.version>
-        <minio.version>8.5.14</minio.version>
+        <minio.version>8.6.0</minio.version>
 
         <!-- 任务调度 -->
         <xxl-job.version>2.4.2</xxl-job.version>
