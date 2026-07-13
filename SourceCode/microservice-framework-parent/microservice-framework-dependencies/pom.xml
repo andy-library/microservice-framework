@@ -56,7 +56,7 @@
         <!-- 数据库治理 -->
         <shardingsphere.version>5.5.1</shardingsphere.version>
         <checker-qual.version>3.41.0</checker-qual.version>
-        <error-prone-annotations.version>2.27.0</error-prone-annotations.version>
+        <error-prone-annotations.version>2.50.0</error-prone-annotations.version>
         <commons-lang3.version>3.18.0</commons-lang3.version>
         <snakeyaml.version>2.3</snakeyaml.version>
         <commons-logging.version>1.2</commons-logging.version>
