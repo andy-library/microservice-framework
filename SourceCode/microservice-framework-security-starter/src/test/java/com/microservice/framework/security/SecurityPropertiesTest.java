@@ -66,9 +66,9 @@ class SecurityPropertiesTest {
     class ServiceIdentityDefaults {
 
         @Test
-        @DisplayName("enabled 默认应为 true")
+        @DisplayName("enabled 默认应为 false，避免未配置凭据时匿名服务身份")
         void enabledDefault() {
-            assertThat(properties.getServiceIdentity().isEnabled()).isTrue();
+            assertThat(properties.getServiceIdentity().isEnabled()).isFalse();
         }
 
         @Test
@@ -142,10 +142,13 @@ class SecurityPropertiesTest {
     class PathDefaults {
 
         @Test
-        @DisplayName("permitPaths 默认应包含 '/actuator/**' 和 '/health'")
+        @DisplayName("permitPaths 默认仅包含健康和就绪探针")
         void permitPathsDefault() {
             assertThat(properties.getPath().getPermitPaths())
-                    .containsExactly("/actuator/**", "/health");
+                    .containsExactly(
+                            "/actuator/health",
+                            "/actuator/health/liveness",
+                            "/actuator/health/readiness");
         }
 
         @Test

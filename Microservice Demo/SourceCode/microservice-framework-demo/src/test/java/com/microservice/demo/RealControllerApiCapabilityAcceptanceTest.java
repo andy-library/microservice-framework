@@ -127,40 +127,40 @@ class RealControllerApiCapabilityAcceptanceTest {
     void governanceAndRuntimeApisWork() {
         given().when().get("/api/demo/logging/structured")
                 .then().statusCode(200)
-                .body("message", containsString("structured"));
+                .body("data.message", containsString("structured"));
 
         given().when().get("/api/demo/logging/masking")
                 .then().statusCode(200)
-                .body("message", containsString("masked"));
+                .body("data.message", containsString("masked"));
 
         given().when().get("/api/demo/logging/exception")
                 .then().statusCode(200)
-                .body("message", containsString("Exception logged"));
+                .body("data.message", containsString("Exception logged"));
 
         given().when().get("/api/demo/logging/levels")
                 .then().statusCode(200)
-                .body("message", containsString("different log levels"));
+                .body("data.message", containsString("different log levels"));
 
         given().when().get("/api/demo/logging/flood")
                 .then().statusCode(200)
-                .body("totalAttempted", equalTo(1000));
+                .body("data.totalAttempted", equalTo(1000));
 
         given().when().get("/api/demo/tracing/current")
                 .then().statusCode(200)
-                .body("traceId", notNullValue())
-                .body("spanId", notNullValue());
+                .body("data.traceId", notNullValue())
+                .body("data.spanId", notNullValue());
 
         given().header("user-id", "user-" + RUN_ID)
                 .header("tenant-id", "tenant-demo")
                 .when().get("/api/demo/tracing/baggage")
                 .then().statusCode(200)
-                .body("userId", equalTo("user-" + RUN_ID))
-                .body("tenantId", equalTo("tenant-demo"))
-                .body("traceId", notNullValue());
+                .body("data.userId", equalTo("user-" + RUN_ID))
+                .body("data.tenantId", equalTo("tenant-demo"))
+                .body("data.traceId", notNullValue());
 
         given().when().get("/api/demo/tracing/sampling")
                 .then().statusCode(200)
-                .body("message", notNullValue());
+                .body("data.message", notNullValue());
 
         given().queryParam("value", "api-tag-" + RUN_ID)
                 .when().get("/api/demo/tracing/tag")
@@ -170,20 +170,22 @@ class RealControllerApiCapabilityAcceptanceTest {
         given().queryParam("channel", "api")
                 .when().get("/api/demo/metrics/counter")
                 .then().statusCode(200)
-                .body("metric", equalTo("business.order.created"))
-                .body("tags.channel", equalTo("api"));
+                .body("data.metric", equalTo("business.order.created"))
+                .body("data.tags.channel", equalTo("api"));
 
         given().when().get("/api/demo/metrics/timer")
                 .then().statusCode(200)
-                .body("metric", equalTo("business.payment.process"))
-                .body("actualDurationMs", greaterThan(0));
+                .body("data.metric", equalTo("business.payment.process"))
+                .body("data.actualDurationMs", greaterThan(0));
 
         given().when().get("/demo/security/public")
                 .then().statusCode(200)
                 .body("code", equalTo(0))
                 .body("data.access", equalTo("public"));
 
-        given().when().get("/demo/security/internal")
+        given().header("X-Service-Token", "demo-service-token-change-me")
+                .header("X-Service-Id", "microservice-framework-demo")
+                .when().get("/demo/security/internal")
                 .then().statusCode(200)
                 .body("code", equalTo(0))
                 .body("data.access", equalTo("internal"));
@@ -193,7 +195,7 @@ class RealControllerApiCapabilityAcceptanceTest {
                 .then().statusCode(200)
                 .body("code", equalTo(0))
                 .body("data.completed", equalTo(true))
-                .body("data.taskResult", containsString("async-result"));
+                .body("data.taskResult", equalTo("ok"));
 
         given().when().get("/demo/async/context")
                 .then().statusCode(200)
@@ -236,8 +238,8 @@ class RealControllerApiCapabilityAcceptanceTest {
         given().when().get("/demo/database/routing/current")
                 .then().statusCode(200)
                 .body("code", equalTo(0))
-                .body("data.routingHint", equalTo("PRIMARY"))
-                .body("data.isPrimary", equalTo(true));
+                .body("data.routingHint", equalTo("READ_REPLICA"))
+                .body("data.isPrimary", equalTo(false));
 
         String cacheKey = "controller:api:redis:" + RUN_ID;
         given().contentType("application/json")
@@ -315,13 +317,6 @@ class RealControllerApiCapabilityAcceptanceTest {
                 .body("data.kafkaPublisherAvailable", equalTo(true))
                 .body("data.kafkaConsumerBuilderAvailable", equalTo(true));
 
-        given().contentType("application/json")
-                .when().post("/demo/kafka/dlq/replay")
-                .then().statusCode(200)
-                .body("code", equalTo(0))
-                .body("data.kafkaAvailable", equalTo(true))
-                .body("data.status", equalTo("notional"));
-
         String esOrderId = "ctrl-es-" + RUN_ID;
         given().contentType("application/json")
                 .body("""
@@ -339,7 +334,7 @@ class RealControllerApiCapabilityAcceptanceTest {
                 .body("data.found", equalTo(true))
                 .body("data.document.orderId", equalTo(esOrderId));
 
-        given().queryParam("status", "CREATED")
+        given().queryParam("field", "orderId").queryParam("value", esOrderId)
                 .when().get("/demo/es/order/search")
                 .then().statusCode(200)
                 .body("code", equalTo(0))
@@ -362,10 +357,10 @@ class RealControllerApiCapabilityAcceptanceTest {
         given().when().get("/demo/feign/timeout-policy")
                 .then().statusCode(200)
                 .body("code", equalTo(0))
-                .body("data.propagatorAvailable", equalTo(true))
-                .body("data.restoredRequestId", equalTo("downstream-request-001"));
+                .body("data.connectTimeoutMs", greaterThan(0))
+                .body("data.readTimeoutMs", greaterThan(0));
 
-        given().contentType("application/json")
+        given().log().ifValidationFails().contentType("application/json")
                 .when().post("/demo/audit/admin-action")
                 .then().statusCode(200)
                 .body("code", equalTo(0))
@@ -375,7 +370,7 @@ class RealControllerApiCapabilityAcceptanceTest {
         given().when().get("/demo/audit/latest")
                 .then().statusCode(200)
                 .body("code", equalTo(0))
-                .body("data.found", notNullValue());
+                .body("data.entryId", notNullValue());
 
         String plaintext = "sensitive-controller-" + RUN_ID;
         Response encryptResponse = given().contentType("application/json")

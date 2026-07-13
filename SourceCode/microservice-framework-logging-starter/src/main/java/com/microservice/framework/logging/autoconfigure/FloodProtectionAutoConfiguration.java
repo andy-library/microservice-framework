@@ -5,13 +5,10 @@ import com.microservice.framework.logging.core.filter.RateLimitingTurboFilter;
 import com.microservice.framework.logging.properties.LoggingProperties;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 
 /**
  * 日志风暴防护自动配置
@@ -22,7 +19,7 @@ import org.springframework.context.annotation.Configuration;
  * <ul>
  * <li>基于令牌桶算法实现平滑限流</li>
  * <li>可配置每秒日志数量和突发容量</li>
- * <li>可选的 Spring Cloud 动态刷新支持</li>
+ * <li>通过重启或外部扩展应用配置变更</li>
  * </ul>
  * 
  * <h3>配置层次</h3>
@@ -67,49 +64,10 @@ import org.springframework.context.annotation.Configuration;
 @ConditionalOnProperty(prefix = "framework.logging.flood-protection", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class FloodProtectionAutoConfiguration {
 
-    /**
-     * 增强配置（支持 Spring Cloud 动态刷新）
-     * 
-     * <p>
-     * 条件：当 {@code org.springframework.cloud.context.config.annotation.RefreshScope}
-     * 类存在于类路径时生效。
-     * 
-     * <p>
-     * 由于此配置类在 {@link BaseFloodProtectionConfiguration} 之前声明，
-     * 且使用 {@code @ConditionalOnClass} 而非 {@code @ConditionalOnMissingBean}，
-     * 因此在 Spring Cloud 环境下优先生效。
-     */
-    @Configuration(proxyBeanMethods = false)
-    @ConditionalOnClass(name = "org.springframework.cloud.context.config.annotation.RefreshScope")
-    static class RefreshableFloodProtectionConfiguration {
-
-        @Bean
-        @org.springframework.cloud.context.config.annotation.RefreshScope
-        @ConditionalOnMissingBean(RateLimitingTurboFilter.class)
-        public RateLimitingTurboFilter rateLimitingTurboFilter(LoggingProperties properties) {
-            return createFilter(properties);
-        }
-    }
-
-    /**
-     * 基础配置（无 Spring Cloud）
-     * 
-     * <p>
-     * 条件：当 {@link RateLimitingTurboFilter} Bean 不存在时生效。
-     * 由于增强配置优先级更高（先声明），此配置仅在 Spring Cloud 不可用时激活。
-     * 
-     * <p>
-     * 功能与增强配置完全相同，仅缺少动态刷新能力。
-     */
-    @Configuration(proxyBeanMethods = false)
-    @ConditionalOnMissingClass("org.springframework.cloud.context.config.annotation.RefreshScope")
+    @Bean
     @ConditionalOnMissingBean(RateLimitingTurboFilter.class)
-    static class BaseFloodProtectionConfiguration {
-
-        @Bean
-        public RateLimitingTurboFilter rateLimitingTurboFilter(LoggingProperties properties) {
-            return createFilter(properties);
-        }
+    public RateLimitingTurboFilter rateLimitingTurboFilter(LoggingProperties properties) {
+        return createFilter(properties);
     }
 
     /**

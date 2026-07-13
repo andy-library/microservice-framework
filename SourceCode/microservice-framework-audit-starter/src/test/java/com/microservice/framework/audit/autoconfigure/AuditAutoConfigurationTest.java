@@ -2,9 +2,12 @@ package com.microservice.framework.audit.autoconfigure;
 
 import com.microservice.framework.audit.AuditProperties;
 import com.microservice.framework.audit.api.AuditRecorder;
+import com.microservice.framework.audit.api.AuditTamperEvidenceKeyProvider;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
+import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
+import org.springframework.boot.autoconfigure.jdbc.JdbcTemplateAutoConfiguration;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -29,13 +32,59 @@ class AuditAutoConfigurationTest {
             assertThat(context).hasNotFailed();
             assertThat(context).hasBean("auditRecorder");
             assertThat(context.getBean(AuditRecorder.class)).isNotNull();
+            assertThat(context).hasSingleBean(AuditTamperEvidenceKeyProvider.class);
         });
     }
 
     @Test
-    @DisplayName("禁用 Audit Starter 后 AuditRecorder Bean 不应存在")
-    void disablingAuditShouldRemoveAuditRecorder() {
+    @DisplayName("B 端强制审计时禁止关闭 Audit Starter")
+    void mandatoryBSideAuditShouldRejectDisablingAudit() {
         contextRunner.withPropertyValues("framework.audit.enabled=false")
+                .run(context -> assertThat(context).hasFailed());
+    }
+
+    @Test
+    @DisplayName("mandatory prod audit must fail closed when no tamper evidence key is available")
+    void mandatoryProdAuditShouldRequireTamperEvidenceKey() {
+        new ApplicationContextRunner()
+                .withConfiguration(AutoConfigurations.of(
+                        DataSourceAutoConfiguration.class,
+                        JdbcTemplateAutoConfiguration.class,
+                        AuditAutoConfiguration.class))
+                .withPropertyValues(
+                        "spring.profiles.active=prod",
+                        "spring.datasource.url=jdbc:h2:mem:audit-prod-no-key;MODE=MySQL;DB_CLOSE_DELAY=-1",
+                        "spring.datasource.driver-class-name=org.h2.Driver",
+                        "framework.audit.storage.type=JDBC")
+                .run(context -> assertThat(context).hasFailed());
+    }
+
+    @Test
+    @DisplayName("mandatory prod audit should start when key provider bean is supplied")
+    void mandatoryProdAuditShouldAcceptExternalKeyProvider() {
+        new ApplicationContextRunner()
+                .withConfiguration(AutoConfigurations.of(
+                        DataSourceAutoConfiguration.class,
+                        JdbcTemplateAutoConfiguration.class,
+                        AuditAutoConfiguration.class))
+                .withBean(AuditTamperEvidenceKeyProvider.class, () -> () -> "provider-secret".getBytes())
+                .withPropertyValues(
+                        "spring.profiles.active=prod",
+                        "spring.datasource.url=jdbc:h2:mem:audit-prod-provider-key;MODE=MySQL;DB_CLOSE_DELAY=-1",
+                        "spring.datasource.driver-class-name=org.h2.Driver",
+                        "framework.audit.storage.type=JDBC")
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context).hasSingleBean(AuditTamperEvidenceKeyProvider.class);
+                });
+    }
+
+    @Test
+    @DisplayName("非 B 端应用显式取消强制审计后允许关闭 Audit Starter")
+    void nonMandatoryApplicationMayDisableAudit() {
+        contextRunner.withPropertyValues(
+                        "framework.audit.enabled=false",
+                        "framework.audit.bside.mandatory=false")
                 .run(context -> {
                     assertThat(context).hasNotFailed();
                     assertThat(context).doesNotHaveBean(AuditRecorder.class);
@@ -63,13 +112,22 @@ class AuditAutoConfigurationTest {
     void customSecurityPropertiesShouldBindCorrectly() {
         contextRunner.withPropertyValues(
                 "framework.audit.security.checksum-enabled=false",
-                "framework.audit.security.checksum-algorithm=SHA-512")
+                "framework.audit.security.checksum-algorithm=HmacSHA512",
+                "framework.audit.security.tamper-evidence-key=external-secret")
                 .run(context -> {
                     assertThat(context).hasNotFailed();
                     AuditProperties properties = context.getBean(AuditProperties.class);
                     assertThat(properties.getSecurity().getChecksumEnabled()).isFalse();
-                    assertThat(properties.getSecurity().getChecksumAlgorithm()).isEqualTo("SHA-512");
+                    assertThat(properties.getSecurity().getChecksumAlgorithm()).isEqualTo("HmacSHA512");
+                    assertThat(properties.getSecurity().getTamperEvidenceKey()).isEqualTo("external-secret");
                 });
+    }
+
+    @Test
+    @DisplayName("async audit configuration must fail because async outbox is not implemented")
+    void asyncAuditConfigurationShouldFailUntilAsyncOutboxExists() {
+        contextRunner.withPropertyValues("framework.audit.storage.async=true")
+                .run(context -> assertThat(context).hasFailed());
     }
 
     @Test
@@ -135,6 +193,8 @@ class AuditAutoConfigurationTest {
                     recorder.getEntry("test-id");
             assertThat(retrieved).isPresent();
             assertThat(retrieved.get().getId()).isEqualTo("test-id");
+            assertThat(retrieved.get().getChecksum()).isNotEqualTo(entry.getChecksum());
+            assertThat(retrieved.get().verifyChecksum("HmacSHA256", "dev-test-audit-key".getBytes())).isTrue();
         });
     }
 }

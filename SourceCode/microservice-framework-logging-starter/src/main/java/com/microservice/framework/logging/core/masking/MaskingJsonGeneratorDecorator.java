@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.regex.Pattern;
+import java.util.function.UnaryOperator;
 
 /**
  * Logstash JSON generator decorator that masks sensitive string values.
@@ -20,6 +21,11 @@ public class MaskingJsonGeneratorDecorator implements JsonGeneratorDecorator, De
 
     private final List<ValueMasker> valueMaskers = new ArrayList<>();
     private List<CustomRule> customRules = new ArrayList<>();
+    private UnaryOperator<String> maskingFunction;
+
+    public void setMaskingFunction(UnaryOperator<String> maskingFunction) {
+        this.maskingFunction = Objects.requireNonNull(maskingFunction, "maskingFunction must not be null");
+    }
 
     public void setCustomRules(List<CustomRule> customRules) {
         this.customRules = customRules == null ? new ArrayList<>() : new ArrayList<>(customRules);
@@ -50,6 +56,9 @@ public class MaskingJsonGeneratorDecorator implements JsonGeneratorDecorator, De
     }
 
     private String mask(String value) {
+        if (maskingFunction != null) {
+            return maskingFunction.apply(value);
+        }
         Object masked = value;
         for (ValueMasker masker : valueMaskers) {
             masked = masker.mask(null, masked);

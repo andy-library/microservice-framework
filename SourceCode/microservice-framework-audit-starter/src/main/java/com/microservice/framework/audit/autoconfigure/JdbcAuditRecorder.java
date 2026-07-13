@@ -4,9 +4,12 @@ import com.microservice.framework.audit.AuditProperties;
 import com.microservice.framework.audit.api.AuditEntry;
 import com.microservice.framework.audit.api.AuditQuery;
 import com.microservice.framework.audit.api.AuditRecorder;
+import com.microservice.framework.audit.api.AuditTamperEvidenceKeyProvider;
 import com.microservice.framework.common.page.PageRequest;
 import com.microservice.framework.common.page.PageResult;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.sql.Timestamp;
 import java.time.Instant;
@@ -26,11 +29,21 @@ final class JdbcAuditRecorder implements AuditRecorder {
 
     private final JdbcTemplate jdbcTemplate;
     private final AuditProperties properties;
+    private final AuditTamperEvidenceKeyProvider keyProvider;
+    private final TransactionTemplate transactionTemplate;
     private final String tableName;
 
     JdbcAuditRecorder(JdbcTemplate jdbcTemplate, AuditProperties properties) {
+        this(jdbcTemplate, properties, () -> "dev-test-audit-key".getBytes(java.nio.charset.StandardCharsets.UTF_8), null);
+    }
+
+    JdbcAuditRecorder(JdbcTemplate jdbcTemplate, AuditProperties properties,
+                      AuditTamperEvidenceKeyProvider keyProvider,
+                      PlatformTransactionManager transactionManager) {
         this.jdbcTemplate = Objects.requireNonNull(jdbcTemplate, "jdbcTemplate must not be null");
         this.properties = Objects.requireNonNull(properties, "properties must not be null");
+        this.keyProvider = Objects.requireNonNull(keyProvider, "keyProvider must not be null");
+        this.transactionTemplate = transactionManager == null ? null : new TransactionTemplate(transactionManager);
         this.tableName = validateTableName(properties.getStorage().getTableName());
         if (Boolean.TRUE.equals(properties.getStorage().getAutoCreateTable())) {
             createTable();
@@ -56,9 +69,14 @@ final class JdbcAuditRecorder implements AuditRecorder {
 
     @Override
     public void recordBatch(List<AuditEntry> entries) {
-        for (AuditEntry entry : entries) {
-            record(entry);
+        Objects.requireNonNull(entries, "entries must not be null");
+        if (entries.isEmpty()) {
+            return;
         }
+        if (transactionTemplate == null) {
+            throw new IllegalStateException("JDBC audit recordBatch requires a transaction manager to avoid partial writes");
+        }
+        transactionTemplate.executeWithoutResult(status -> entries.forEach(this::record));
     }
 
     @Override
@@ -122,7 +140,7 @@ final class JdbcAuditRecorder implements AuditRecorder {
         Instant timestamp = entry.getTimestamp().truncatedTo(java.time.temporal.ChronoUnit.MICROS);
         return new AuditEntry(entry.getId(), entry.getEventType(), entry.getOperatorId().orElse(null),
                 entry.getTargetId().orElse(null), entry.getAction(), entry.getDetail().orElse(null), timestamp,
-                properties.getSecurity().getChecksumAlgorithm());
+                properties.getSecurity().getChecksumAlgorithm(), keyProvider.currentKey());
     }
 
     private AuditEntry mapEntry(java.sql.ResultSet resultSet, int rowNum) throws java.sql.SQLException {
@@ -140,7 +158,7 @@ final class JdbcAuditRecorder implements AuditRecorder {
 
     private void verifyChecksum(AuditEntry entry) {
         if (Boolean.TRUE.equals(properties.getSecurity().getChecksumEnabled())
-                && !entry.verifyChecksum(properties.getSecurity().getChecksumAlgorithm())) {
+                && !entry.verifyChecksum(properties.getSecurity().getChecksumAlgorithm(), keyProvider.currentKey())) {
             throw new IllegalStateException("Audit entry checksum verification failed for id: " + entry.getId());
         }
     }

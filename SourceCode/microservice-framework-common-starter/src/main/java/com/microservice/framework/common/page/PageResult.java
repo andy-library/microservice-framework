@@ -22,7 +22,7 @@ public final class PageResult<T> {
 
     private PageResult(long total, List<T> items, int pageNumber, int pageSize) {
         this.total = total;
-        this.items = Collections.unmodifiableList(Objects.requireNonNull(items, "items must be non-null"));
+        this.items = List.copyOf(Objects.requireNonNull(items, "items must be non-null"));
         this.pageNumber = pageNumber;
         this.pageSize = pageSize;
     }

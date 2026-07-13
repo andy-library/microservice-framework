@@ -1,0 +1,16 @@
+package rules
+
+import com.microservice.framework.drools.support.Applicant;
+
+global java.util.List auditMessages;
+
+rule "Adult applicant approved"
+    @group("eligibility")
+when
+    $applicant : Applicant(age >= 18, eligible == false)
+then
+    $applicant.setEligible(true);
+    if (auditMessages != null) {
+        auditMessages.add($applicant.getName() + " approved");
+    }
+end

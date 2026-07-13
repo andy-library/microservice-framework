@@ -109,6 +109,26 @@
         </dependency>
 
         <!-- ====================================================================
+             Spring Cloud Alibaba Nacos Config
+             作用：提供官方 Nacos 客户端与 Spring Boot ConfigData 加载器
+             版本：由 spring-cloud-alibaba-dependencies 管理
+             ==================================================================== -->
+        <dependency>
+            <groupId>com.alibaba.cloud</groupId>
+            <artifactId>spring-cloud-starter-alibaba-nacos-config</artifactId>
+        </dependency>
+
+        <!-- ====================================================================
+             Spring Cloud Kubernetes Config
+             作用：启用 kubernetes: ConfigData 位置，支持集群 ConfigMap/Secret 配置源
+             版本：由 spring-cloud-dependencies 管理
+             ==================================================================== -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-kubernetes-client-config</artifactId>
+        </dependency>
+
+        <!-- ====================================================================
              Spring Cloud Context（可选依赖）
              作用：提供 @RefreshScope 动态刷新能力
              可选：仅当 Spring Cloud 上下文可用时激活刷新策略

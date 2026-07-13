@@ -5,7 +5,9 @@ import com.microservice.framework.redis.RedisProperties;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 
+import java.util.HashMap;
 import java.util.Collections;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -42,6 +44,7 @@ public class RedisLock implements DistributedLock {
     private final RedisProperties.LockProperties lockProperties;
 
     private final DefaultRedisScript<Long> unlockScript;
+    private final ThreadLocal<Map<String, String>> ownedLocks = ThreadLocal.withInitial(HashMap::new);
 
     /**
      * 创建 RedisLock 实例
@@ -75,6 +78,7 @@ public class RedisLock implements DistributedLock {
             Boolean acquired = redisTemplate.opsForValue()
                     .setIfAbsent(lockKey, lockValue, expire, TimeUnit.MILLISECONDS);
             if (Boolean.TRUE.equals(acquired)) {
+                ownedLocks.get().put(lockKey, lockValue);
                 return true;
             }
             if (System.currentTimeMillis() >= deadline) {
@@ -93,13 +97,17 @@ public class RedisLock implements DistributedLock {
     @Override
     public boolean unlock(String key) {
         String lockKey = LOCK_PREFIX + key;
-        // 获取当前锁的值以判断是否为持有者
-        String currentValue = redisTemplate.opsForValue().get(lockKey);
-        if (currentValue == null) {
+        Map<String, String> locks = ownedLocks.get();
+        String ownerToken = locks.get(lockKey);
+        if (ownerToken == null) {
             return false;
         }
         Long result = redisTemplate.execute(unlockScript,
-                Collections.singletonList(lockKey), currentValue);
+                Collections.singletonList(lockKey), ownerToken);
+        locks.remove(lockKey);
+        if (locks.isEmpty()) {
+            ownedLocks.remove();
+        }
         return Long.valueOf(1L).equals(result);
     }
 

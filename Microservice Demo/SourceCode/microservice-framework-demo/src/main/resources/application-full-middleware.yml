@@ -32,7 +32,7 @@ spring:
     url: ${DEMO_MYSQL_URL:jdbc:mysql://127.0.0.1:3306/microservice_framework_demo?useUnicode=true&characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai}
     driver-class-name: com.mysql.cj.jdbc.Driver
     username: ${DEMO_MYSQL_USERNAME:dev}
-    password: ${DEMO_MYSQL_PASSWORD:}
+    password: ${DEMO_MYSQL_PASSWORD:dev123456}
     hikari:
       maximum-pool-size: 5
       minimum-idle: 1
@@ -54,7 +54,7 @@ spring:
     redis:
       host: ${DEMO_REDIS_HOST:127.0.0.1}
       port: ${DEMO_REDIS_PORT:6379}
-      password: ${DEMO_REDIS_PASSWORD:}
+      password: ${DEMO_REDIS_PASSWORD:redis123456}
       database: ${DEMO_REDIS_DATABASE:0}
       timeout: 3s
   kafka:
@@ -63,7 +63,7 @@ spring:
       default-topic: ${DEMO_KAFKA_TOPIC:microservice-framework-demo-topic}
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
-      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
       acks: all
       retries: 3
     consumer:
@@ -71,7 +71,10 @@ spring:
       auto-offset-reset: earliest
       enable-auto-commit: false
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "java.lang,java.util"
+        spring.json.use.type.headers: true
   elasticsearch:
     uris: ${DEMO_ELASTICSEARCH_URIS:http://127.0.0.1:9200}
 
@@ -131,6 +134,11 @@ framework:
     enabled: true
     jwt:
       enabled: false
+    service-identity:
+      enabled: true
+      service-token: ${DEMO_SERVICE_TOKEN:demo-service-token-change-me}
+      protected-paths:
+        - /demo/security/internal
     cors:
       enabled: true
       allowed-origins:
@@ -183,7 +191,7 @@ framework:
     outbox:
       enabled: true
       auto-create-table: true
-      table-name: demo_outbox_event
+      table-name: demo_outbox_event_v2
       max-fetch-size: 100
 
   audit:
@@ -191,7 +199,7 @@ framework:
     storage:
       type: JDBC
       auto-create-table: true
-      table-name: demo_audit_event
+      table-name: demo_audit_event_v2
     b-side:
       mandatory: false
 
@@ -211,6 +219,8 @@ framework:
       retries: 3
     consumer:
       auto-commit: false
+      properties:
+        auto.offset.reset: earliest
       concurrency: 3
       poll-timeout-ms: 10000
     dead-letter:

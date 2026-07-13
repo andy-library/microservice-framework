@@ -29,19 +29,27 @@ public class RedisRateLimiter implements RateLimiter {
     /**
      * 限流 Lua 脅脚本
      * <p>
-     * 参数：KEYS[1] = 限流 key，ARGV[1] = permits，ARGV[2] = period（秒）
+     * 参数：KEYS[1] = 限流 key，ARGV[1] = requested，ARGV[2] = limit，ARGV[3] = period（秒）
      * <p>
      * 逻辑：
-     * 1. 递增计数（若 key 不存在则初始化为 1）
-     * 2. 如果是首次创建，设置 TTL 为 period 秒
-     * 3. 返回当前计数
+     * 1. 读取当前计数
+     * 2. 如果 current + requested 超过 limit，拒绝且不递增
+     * 3. 否则使用 INCRBY 原子消耗 requested 个许可
+     * 4. 如果是首次创建，设置 TTL 为 period 秒
      */
     private static final String RATE_LIMIT_SCRIPT =
-            "local current = redis.call('incr', KEYS[1]) " +
-            "if current == 1 then " +
-            "  redis.call('expire', KEYS[1], tonumber(ARGV[2])) " +
+            "local requested = tonumber(ARGV[1]) " +
+            "local limit = tonumber(ARGV[2]) " +
+            "local period = tonumber(ARGV[3]) " +
+            "local current = tonumber(redis.call('get', KEYS[1]) or '0') " +
+            "if current + requested > limit then " +
+            "  return 0 " +
             "end " +
-            "return current";
+            "local updated = redis.call('incrby', KEYS[1], requested) " +
+            "if current == 0 then " +
+            "  redis.call('expire', KEYS[1], period) " +
+            "end " +
+            "return updated";
 
     /**
      * 查询剩余 permits 的 Lua 脅脚本
@@ -81,21 +89,25 @@ public class RedisRateLimiter implements RateLimiter {
 
     @Override
     public boolean tryAcquire(String key) {
-        return tryAcquire(key, 1);
+        return tryAcquire(key, 1, rateLimitProperties.getDefaultPermits(), rateLimitProperties.getDefaultPeriod());
     }
 
     @Override
     public boolean tryAcquire(String key, int permits) {
-        return tryAcquire(key, rateLimitProperties.getDefaultPermits(), rateLimitProperties.getDefaultPeriod());
+        return tryAcquire(key, permits, rateLimitProperties.getDefaultPermits(), rateLimitProperties.getDefaultPeriod());
     }
 
     @Override
     public boolean tryAcquire(String key, int permits, long period) {
+        return tryAcquire(key, 1, permits, period);
+    }
+
+    private boolean tryAcquire(String key, int requestedPermits, int limit, long period) {
         String rateLimitKey = RATE_LIMIT_PREFIX + key;
         Long current = redisTemplate.execute(rateLimitScript,
                 Collections.singletonList(rateLimitKey),
-                String.valueOf(permits), String.valueOf(period));
-        return current != null && current <= permits;
+                String.valueOf(requestedPermits), String.valueOf(limit), String.valueOf(period));
+        return isAllowed(current, limit);
     }
 
     @Override
@@ -105,8 +117,8 @@ public class RedisRateLimiter implements RateLimiter {
         long period = rateLimitProperties.getDefaultPeriod();
         Long current = redisTemplate.execute(rateLimitScript,
                 Collections.singletonList(rateLimitKey),
-                String.valueOf(permits), String.valueOf(period));
-        if (current != null && current <= permits) {
+                "1", String.valueOf(permits), String.valueOf(period));
+        if (isAllowed(current, permits)) {
             return 0L;
         }
         // 返回大致等待时间：剩余窗口时间的比例
@@ -121,5 +133,9 @@ public class RedisRateLimiter implements RateLimiter {
                 Collections.singletonList(rateLimitKey),
                 String.valueOf(rateLimitProperties.getDefaultPermits()));
         return remaining != null ? remaining : rateLimitProperties.getDefaultPermits();
+    }
+
+    private boolean isAllowed(Long current, int limit) {
+        return current != null && current > 0 && current <= limit;
     }
 }

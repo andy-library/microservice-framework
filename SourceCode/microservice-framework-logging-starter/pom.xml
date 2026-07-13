@@ -110,17 +110,6 @@
         </dependency>
 
         <!-- ====================================================================
-             Spring Cloud Context（可选）
-             作用：支持动态配置刷新（@RefreshScope）
-             可选：业务项目如果不需要动态配置，可以不引入 Spring Cloud
-             ==================================================================== -->
-        <dependency>
-            <groupId>org.springframework.cloud</groupId>
-            <artifactId>spring-cloud-context</artifactId>
-            <optional>true</optional>
-        </dependency>
-
-        <!-- ====================================================================
              Servlet API（可选）
              作用：支持请求 ID 兜底过滤器
              可选：仅在 Web 应用中需要

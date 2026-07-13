@@ -1,6 +1,7 @@
 package com.microservice.framework.json.security;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.jsontype.impl.LaissezFaireSubTypeValidator;
 import com.microservice.framework.json.JsonProperties;
 import com.microservice.framework.json.api.JsonCodec;
 import com.microservice.framework.json.api.JsonCodecException;
@@ -52,6 +53,32 @@ class JsonSecurityTest {
             String json = "{\"name\":\"test\",\"age\":1}";
             Object result = defaultCodec.deserialize(json, Object.class);
             assertThat(result).isInstanceOf(java.util.Map.class);
+        }
+
+        @Test
+        @DisplayName("定制器不得重新启用 default typing")
+        void customizerMustNotReenableDefaultTyping() {
+            JsonCodec codec = new JacksonJsonCodec(new ObjectMapper(), defaultProperties,
+                    List.of(mapper -> mapper.activateDefaultTyping(
+                            LaissezFaireSubTypeValidator.instance, ObjectMapper.DefaultTyping.NON_FINAL)));
+
+            Object result = codec.deserialize(
+                    "[\"java.util.HashMap\",{\"role\":\"admin\"}]", Object.class);
+
+            assertThat(result).isInstanceOf(List.class);
+        }
+
+        @Test
+        @DisplayName("暴露的 ObjectMapper 副本不得改变编解码器的 default typing")
+        void objectMapperAccessMustNotReenableDefaultTyping() {
+            JacksonJsonCodec codec = new JacksonJsonCodec(new ObjectMapper(), defaultProperties, List.of());
+            codec.getObjectMapper().activateDefaultTyping(
+                    LaissezFaireSubTypeValidator.instance, ObjectMapper.DefaultTyping.NON_FINAL);
+
+            Object result = codec.deserialize(
+                    "[\"java.util.HashMap\",{\"role\":\"admin\"}]", Object.class);
+
+            assertThat(result).isInstanceOf(List.class);
         }
     }
 

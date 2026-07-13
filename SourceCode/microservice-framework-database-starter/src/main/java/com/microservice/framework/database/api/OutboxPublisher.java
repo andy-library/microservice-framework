@@ -55,6 +55,18 @@ public interface OutboxPublisher {
     java.util.List<OutboxEvent> findUnpublished();
 
     /**
+     * Atomically claims unpublished events for a publisher.
+     * <p>
+     * Implementations must only return rows successfully leased by this call so
+     * concurrent publishers cannot process the same event at the same time.
+     *
+     * @param publisherId   unique publisher worker id
+     * @param leaseDuration how long the claim remains valid before retry
+     * @return events leased by this publisher
+     */
+    java.util.List<OutboxEvent> claimUnpublished(String publisherId, java.time.Duration leaseDuration);
+
+    /**
      * Outbox 事件数据模型
      * <p>
      * 表示 Outbox 表中一条待发布或已发布的事件记录。
@@ -68,6 +80,10 @@ public interface OutboxPublisher {
         private final String payload;
         private final boolean published;
         private final java.time.Instant createdAt;
+        private final String claimedBy;
+        private final java.time.Instant claimedUntil;
+        private final int retryCount;
+        private final String lastError;
 
         /**
          * 创建 Outbox 事件
@@ -83,6 +99,29 @@ public interface OutboxPublisher {
         public OutboxEvent(String eventId, String aggregateType, String aggregateId,
                            String eventType, String payload, boolean published,
                            java.time.Instant createdAt) {
+            this(eventId, aggregateType, aggregateId, eventType, payload, published, createdAt,
+                    null, null, 0, null);
+        }
+
+        /**
+         * 创建带声明和重试元数据的 Outbox 事件。
+         *
+         * @param eventId       事件 ID
+         * @param aggregateType 聚合类型
+         * @param aggregateId   聚合 ID
+         * @param eventType     事件类型
+         * @param payload       事件内容
+         * @param published     是否已发布
+         * @param createdAt     创建时间
+         * @param claimedBy     当前声明该事件的 publisher ID
+         * @param claimedUntil  声明租约截止时间
+         * @param retryCount    已声明/重试次数
+         * @param lastError     上次发布失败信息
+         */
+        public OutboxEvent(String eventId, String aggregateType, String aggregateId,
+                           String eventType, String payload, boolean published,
+                           java.time.Instant createdAt, String claimedBy,
+                           java.time.Instant claimedUntil, int retryCount, String lastError) {
             this.eventId = eventId;
             this.aggregateType = aggregateType;
             this.aggregateId = aggregateId;
@@ -90,6 +129,10 @@ public interface OutboxPublisher {
             this.payload = payload;
             this.published = published;
             this.createdAt = createdAt;
+            this.claimedBy = claimedBy;
+            this.claimedUntil = claimedUntil;
+            this.retryCount = retryCount;
+            this.lastError = lastError;
         }
 
         public String getEventId() {
@@ -118,6 +161,22 @@ public interface OutboxPublisher {
 
         public java.time.Instant getCreatedAt() {
             return createdAt;
+        }
+
+        public String getClaimedBy() {
+            return claimedBy;
+        }
+
+        public java.time.Instant getClaimedUntil() {
+            return claimedUntil;
+        }
+
+        public int getRetryCount() {
+            return retryCount;
+        }
+
+        public String getLastError() {
+            return lastError;
         }
 
         @Override

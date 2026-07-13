@@ -43,18 +43,19 @@ class AuditEntryTest {
     }
 
     @Test
-    @DisplayName("相同字段值应产生相同 checksum")
-    void sameFieldValuesShouldProduceSameChecksum() {
+    @DisplayName("keyed tamper evidence must include id")
+    void keyedTamperEvidenceShouldIncludeId() {
         Instant now = Instant.now();
         AuditEntry entry1 = new AuditEntry(
                 "id-1", "LOGIN", "user-001", "target-001",
-                "login", "user logged in", now, "SHA-256");
+                "login", "user logged in", now, "HmacSHA256", "prod-secret".getBytes());
         AuditEntry entry2 = new AuditEntry(
                 "id-2", "LOGIN", "user-001", "target-001",
-                "login", "user logged in", now, "SHA-256");
+                "login", "user logged in", now, "HmacSHA256", "prod-secret".getBytes());
 
-        // checksum is based on content fields, not id
-        assertThat(entry1.getChecksum()).isEqualTo(entry2.getChecksum());
+        assertThat(entry1.getChecksum()).isNotEqualTo(entry2.getChecksum());
+        assertThat(entry1.verifyChecksum("HmacSHA256", "prod-secret".getBytes())).isTrue();
+        assertThat(entry1.verifyChecksum("HmacSHA256", "wrong-secret".getBytes())).isFalse();
     }
 
     @Test

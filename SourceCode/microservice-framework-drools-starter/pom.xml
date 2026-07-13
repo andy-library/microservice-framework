@@ -102,6 +102,18 @@
         </dependency>
 
         <!-- ====================================================================
+             Drools MVEL（可选依赖）
+             作用：提供 DRL 条件和动作表达式编译能力
+             可选：仅在应用需要实际编译/执行 DRL 规则时引入
+             版本：由 microservice-framework-dependencies BOM（通过 Drools BOM）管理
+             ==================================================================== -->
+        <dependency>
+            <groupId>org.drools</groupId>
+            <artifactId>drools-mvel</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- ====================================================================
              Spring Boot Starter（强制依赖）
              作用：提供 Spring Boot 核心自动配置能力
              版本：由 spring-boot-dependencies 管理

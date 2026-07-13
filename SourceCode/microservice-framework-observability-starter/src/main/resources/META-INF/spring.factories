@@ -1,0 +1,2 @@
+org.springframework.boot.env.EnvironmentPostProcessor=\
+com.microservice.framework.observability.autoconfigure.tracing.BaggagePropagationEnvironmentPostProcessor

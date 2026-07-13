@@ -16,6 +16,9 @@ import org.springframework.boot.context.properties.NestedConfigurationProperty;
 @ConfigurationProperties(prefix = "framework.audit")
 public class AuditProperties {
 
+    /** Whether audit recording is enabled. */
+    private boolean enabled = true;
+
     /**
      * 存储配置
      */
@@ -41,6 +44,14 @@ public class AuditProperties {
     private BSideProperties bside = new BSideProperties();
 
     // Getters and Setters
+
+    public boolean isEnabled() {
+        return enabled;
+    }
+
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
+    }
 
     public StorageProperties getStorage() {
         return storage;
@@ -91,12 +102,12 @@ public class AuditProperties {
         private String type = "MEMORY";
 
         /**
-         * 是否异步写入，默认 true
+         * 是否异步写入，默认 false
          * <p>
-         * 启用后审计记录通过异步方式写入存储，
-         * 不阻塞业务线程，但可能存在短暂延迟。
+         * 当前版本未实现异步 outbox 或后台投递，启用该配置会在启动期失败，
+         * 避免误认为审计事件已经获得可靠异步持久化。
          */
-        private Boolean async = true;
+        private Boolean async = false;
 
         /**
          * 是否自动创建 JDBC 审计表。生产环境禁止启用，应交由迁移工具管理。
@@ -183,12 +194,20 @@ public class AuditProperties {
         private Boolean checksumEnabled = true;
 
         /**
-         * checksum 计算算法，默认 SHA-256
+         * checksum 计算算法，默认 HmacSHA256
          * <p>
-         * 支持的算法取决于 JDK 提供的 MessageDigest 实现。
+         * 生产环境应使用 HMAC 算法和外部密钥提供者生成 keyed tamper evidence。
          */
         @NotBlank
-        private String checksumAlgorithm = "SHA-256";
+        private String checksumAlgorithm = "HmacSHA256";
+
+        /**
+         * 防篡改签名密钥。
+         * <p>
+         * 生产环境推荐通过自定义 AuditTamperEvidenceKeyProvider 从外部 Secret Provider 获取。
+         * 此属性用于配置系统可以安全注入 Secret 的场景。
+         */
+        private String tamperEvidenceKey;
 
         // Getters and Setters
 
@@ -206,6 +225,14 @@ public class AuditProperties {
 
         public void setChecksumAlgorithm(String checksumAlgorithm) {
             this.checksumAlgorithm = checksumAlgorithm;
+        }
+
+        public String getTamperEvidenceKey() {
+            return tamperEvidenceKey;
+        }
+
+        public void setTamperEvidenceKey(String tamperEvidenceKey) {
+            this.tamperEvidenceKey = tamperEvidenceKey;
         }
     }
 

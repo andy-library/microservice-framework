@@ -1,5 +1,6 @@
 package com.microservice.demo.controller;
 
+import com.microservice.framework.fieldencryption.api.FieldEncryptor;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -9,4 +10,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/test/field-encryption")
 public class FieldEncryptionTestController extends EncryptionDemoController {
+
+    public FieldEncryptionTestController(FieldEncryptor fieldEncryptor) {
+        super(fieldEncryptor);
+    }
 }

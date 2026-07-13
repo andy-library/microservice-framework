@@ -9,6 +9,8 @@ import com.microservice.framework.json.api.JsonCodecException;
 import com.microservice.framework.json.api.JsonTypeReference;
 
 import java.io.InputStream;
+import java.io.FilterInputStream;
+import java.io.IOException;
 import java.io.OutputStream;
 import java.lang.reflect.Type;
 import java.nio.charset.StandardCharsets;
@@ -136,9 +138,16 @@ public class Fastjson2JsonCodec implements JsonCodec {
             throw new JsonCodecException(JsonCodecException.JSON_PARAM_NULL,
                     "target type must not be null");
         }
+        PayloadLimitedInputStream limitedInput = new PayloadLimitedInputStream(
+                in, properties.getMaxPayloadSize());
         try {
-            return JSON.parseObject(in, StandardCharsets.UTF_8, type, createReaderContext());
+            return JSON.parseObject(limitedInput, StandardCharsets.UTF_8, type, createReaderContext());
         } catch (Exception e) {
+            if (limitedInput.exceededLimit()) {
+                throw new JsonCodecException(JsonCodecException.JSON_PAYLOAD_EXCEEDED,
+                        "JSON payload size exceeds maximum allowed size "
+                                + properties.getMaxPayloadSize(), e);
+            }
             throw wrapException(e, "deserialize from stream to " + type.getName());
         }
     }
@@ -263,5 +272,72 @@ public class Fastjson2JsonCodec implements JsonCodec {
         // 通用内部错误
         return new JsonCodecException(JsonCodecException.JSON_INTERNAL_ERROR,
                 "JSON operation failed during " + operation, e);
+    }
+
+    private static final class PayloadLimitedInputStream extends FilterInputStream {
+
+        private final int maxPayloadSize;
+        private long bytesRead;
+        private boolean exceededLimit;
+
+        private PayloadLimitedInputStream(InputStream in, int maxPayloadSize) {
+            super(in);
+            this.maxPayloadSize = maxPayloadSize;
+        }
+
+        @Override
+        public int read() throws IOException {
+            int value = super.read();
+            if (value != -1) {
+                recordBytes(1);
+            }
+            return value;
+        }
+
+        @Override
+        public int read(byte[] buffer, int offset, int length) throws IOException {
+            int count = super.read(buffer, offset, maximumReadLength(length));
+            if (count > 0) {
+                recordBytes(count);
+            }
+            return count;
+        }
+
+        @Override
+        public long skip(long count) throws IOException {
+            long skipped = super.skip(maximumReadLength(count));
+            if (skipped > 0) {
+                recordBytes(skipped);
+            }
+            return skipped;
+        }
+
+        private int maximumReadLength(int requestedLength) {
+            if (maxPayloadSize <= 0) {
+                return requestedLength;
+            }
+            long remainingWithSentinel = (long) maxPayloadSize - bytesRead + 1;
+            return (int) Math.min(requestedLength, Math.max(remainingWithSentinel, 1));
+        }
+
+        private long maximumReadLength(long requestedLength) {
+            if (maxPayloadSize <= 0) {
+                return requestedLength;
+            }
+            long remainingWithSentinel = (long) maxPayloadSize - bytesRead + 1;
+            return Math.min(requestedLength, Math.max(remainingWithSentinel, 1));
+        }
+
+        private void recordBytes(long count) throws IOException {
+            bytesRead += count;
+            if (maxPayloadSize > 0 && bytesRead > maxPayloadSize) {
+                exceededLimit = true;
+                throw new IOException("JSON payload size exceeds configured limit");
+            }
+        }
+
+        private boolean exceededLimit() {
+            return exceededLimit;
+        }
     }
 }

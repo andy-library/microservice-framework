@@ -201,7 +201,6 @@
                 <dependency>
                     <groupId>org.springframework.kafka</groupId>
                     <artifactId>spring-kafka</artifactId>
-                    <scope>runtime</scope>
                 </dependency>
             </dependencies>
         </profile>
@@ -215,7 +214,6 @@
                 <dependency>
                     <groupId>org.springframework.kafka</groupId>
                     <artifactId>spring-kafka</artifactId>
-                    <scope>runtime</scope>
                 </dependency>
             </dependencies>
             <build>

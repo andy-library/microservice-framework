@@ -6,10 +6,14 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
+import org.springframework.data.redis.core.Cursor;
 
 import java.util.List;
+import java.util.Collection;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -82,5 +86,29 @@ class RedisCacheImplTest {
         assertThatThrownBy(() -> cache.evictByPattern("*"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("global wildcard");
+    }
+
+    @Test
+    @DisplayName("evictByPattern(pattern) 应在有界 scan 批次内删除，而不是收集全部键")
+    @SuppressWarnings("unchecked")
+    void evictByPatternShouldDeleteInBoundedScanBatches() {
+        RedisProperties.CacheProperties properties = new RedisProperties.CacheProperties();
+        properties.setScanBatchSize(2);
+        cache = new RedisCacheImpl(redisTemplate, properties);
+        Cursor<String> cursor = mock(Cursor.class);
+        when(redisTemplate.scan(any())).thenReturn(cursor);
+        when(cursor.hasNext()).thenReturn(true, true, true, true, true, false);
+        when(cursor.next()).thenReturn(
+                "framework:cache:user:1", "framework:cache:user:2", "framework:cache:user:3",
+                "framework:cache:user:4", "framework:cache:user:5");
+        when(redisTemplate.delete(any(Collection.class))).thenAnswer(invocation ->
+                (long) invocation.<Collection<String>>getArgument(0).size());
+
+        long deleted = cache.evictByPattern("user:*");
+
+        org.mockito.ArgumentCaptor<Collection<String>> batches = org.mockito.ArgumentCaptor.forClass(Collection.class);
+        verify(redisTemplate, org.mockito.Mockito.times(3)).delete(batches.capture());
+        assertThat(batches.getAllValues()).allSatisfy(batch -> assertThat(batch).hasSizeLessThanOrEqualTo(2));
+        assertThat(deleted).isEqualTo(5L);
     }
 }

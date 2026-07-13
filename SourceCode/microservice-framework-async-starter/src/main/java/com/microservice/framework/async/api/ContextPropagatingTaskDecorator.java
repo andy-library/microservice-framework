@@ -57,15 +57,6 @@ public class ContextPropagatingTaskDecorator implements TaskDecorator {
     public Runnable decorate(Runnable runnable) {
         // 在父线程捕获上下文快照
         ContextSnapshot snapshot = contextAdapter.snapshot();
-        return () -> {
-            try {
-                // 在子线程恢复上下文
-                contextAdapter.restore(snapshot);
-                runnable.run();
-            } finally {
-                // 清理子线程上下文，防止 ThreadLocal 泄漏
-                contextAdapter.clear();
-            }
-        };
+        return () -> contextAdapter.runWithSnapshot(snapshot, runnable);
     }
 }

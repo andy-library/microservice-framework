@@ -17,7 +17,7 @@ class ApolloAndConfigEnabledCondition extends AllNestedConditions {
         super(ConfigurationPhase.PARSE_CONFIGURATION);
     }
 
-    @ConditionalOnProperty(prefix = "framework.apollo", name = "enabled", havingValue = "true", matchIfMissing = true)
+    @ConditionalOnProperty(prefix = "framework.apollo", name = "enabled", havingValue = "true")
     static class ApolloEnabled {}
 
     @ConditionalOnProperty(prefix = "framework.config", name = "enabled", havingValue = "true", matchIfMissing = true)

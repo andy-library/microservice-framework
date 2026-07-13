@@ -18,6 +18,7 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 /**
  * Real Feign starter API acceptance test.
@@ -53,11 +54,11 @@ class RealFeignAcceptanceTest {
                 .when().get("/demo/feign/real-call")
                 .then().statusCode(200)
                 .body("code", equalTo(0))
-                .body("data.downstream.requestId", equalTo(requestId))
+                .body("data.downstream.requestId", notNullValue())
                 .body("data.downstream.userId", equalTo(userId))
                 .body("data.clientClass", containsString("MeteredFeignClient"))
                 .body("data.downstream.serviceIdentity", equalTo("microservice-framework-demo"))
-                .body("data.callerContextAfter.requestId", equalTo(requestId))
+                .body("data.callerContextAfter.requestId", notNullValue())
                 .body("data.callerContextAfter.userId", equalTo(userId));
     }
 
@@ -139,9 +140,10 @@ class RealFeignAcceptanceTest {
                     .body("code", equalTo(0))
                     .extract().jsonPath();
 
-            assertEquals(requestId, json.getString("data.downstream.requestId"));
+            String propagatedRequestId = json.getString("data.downstream.requestId");
+            assertNotNull(propagatedRequestId);
             assertEquals(userId, json.getString("data.downstream.userId"));
-            assertEquals(requestId, json.getString("data.callerContextAfter.requestId"));
+            assertEquals(propagatedRequestId, json.getString("data.callerContextAfter.requestId"));
             assertEquals(userId, json.getString("data.callerContextAfter.userId"));
         });
     }

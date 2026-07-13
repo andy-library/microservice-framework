@@ -6,6 +6,7 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ScanOptions;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
@@ -122,14 +123,26 @@ public class RedisCacheImpl implements RedisCache {
         if ("*".equals(pattern) || "**".equals(pattern)) {
             throw new IllegalArgumentException("global wildcard pattern is not allowed");
         }
-        List<String> keys = new ArrayList<>();
         ScanOptions options = ScanOptions.scanOptions()
                 .match(CACHE_PREFIX + pattern)
                 .count(cacheProperties.getScanBatchSize())
                 .build();
+        long deletedTotal = 0L;
+        List<String> batch = new ArrayList<>((int) Math.min(cacheProperties.getScanBatchSize(), 1024L));
         try (var cursor = redisTemplate.scan(options)) {
-            cursor.forEachRemaining(keys::add);
+            while (cursor.hasNext()) {
+                batch.add(cursor.next());
+                if (batch.size() >= cacheProperties.getScanBatchSize()) {
+                    deletedTotal += deleteBatch(batch);
+                    batch.clear();
+                }
+            }
         }
+        deletedTotal += deleteBatch(batch);
+        return deletedTotal;
+    }
+
+    private long deleteBatch(Collection<String> keys) {
         if (keys.isEmpty()) {
             return 0L;
         }

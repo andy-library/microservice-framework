@@ -14,11 +14,8 @@ framework:
     service-identity:
       enabled: true
       service-id-header: X-Service-Id
-      service-timestamp-header: X-Service-Timestamp
-      service-nonce-header: X-Service-Nonce
-      service-signature-header: X-Service-Signature
-      shared-secret: security-acceptance-secret
-      allowed-clock-skew-seconds: 300
+      service-token-header: X-Service-Token
+      service-token: security-acceptance-secret
       protected-paths:
         - /demo/security/internal
     cors:

@@ -8,6 +8,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
+import io.minio.MinioClient;
 
 /**
  * MinIO 对象存储自动配置
@@ -29,6 +30,22 @@ import org.springframework.context.annotation.Bean;
         havingValue = "true", matchIfMissing = true)
 public class MinioObjectStorageAutoConfiguration {
 
+    @Bean(destroyMethod = "close")
+    @ConditionalOnMissingBean(MinioClient.class)
+    public MinioClient minioClient(ObjectStorageProperties properties) {
+        var connection = properties.getConnection();
+        String endpoint = ObjectStorageSupport.requireProperty(connection.getEndpoint(),
+                "framework.object-storage.connection.endpoint");
+        String accessKey = ObjectStorageSupport.requireProperty(connection.getAccessKey(),
+                "framework.object-storage.connection.access-key");
+        String secretKey = ObjectStorageSupport.requireProperty(connection.getSecretKey(),
+                "framework.object-storage.connection.secret-key");
+        return MinioClient.builder()
+                .endpoint(endpoint)
+                .credentials(accessKey, secretKey)
+                .build();
+    }
+
     /**
      * 提供 MinioObjectStorageOperations Bean
      * <p>
@@ -40,8 +57,11 @@ public class MinioObjectStorageAutoConfiguration {
      */
     @Bean("minioObjectStorageOperations")
     @ConditionalOnMissingBean(ObjectStorageOperations.class)
-    public ObjectStorageOperations minioObjectStorageOperations(ObjectStorageProperties properties) {
-        return new MinioObjectStorageOperations(properties);
+    public ObjectStorageOperations minioObjectStorageOperations(MinioClient minioClient,
+                                                               ObjectStorageProperties properties) {
+        ObjectStorageSupport.requireProperty(properties.getConnection().getBucket(),
+                "framework.object-storage.connection.bucket");
+        return new MinioObjectStorageOperations(minioClient, properties);
     }
 
     /**
@@ -57,7 +77,10 @@ public class MinioObjectStorageAutoConfiguration {
     @ConditionalOnMissingBean(PreSignedUrlGenerator.class)
     @ConditionalOnProperty(prefix = "framework.object-storage.presign", name = "enabled",
             havingValue = "true", matchIfMissing = true)
-    public PreSignedUrlGenerator minioPreSignedUrlGenerator(ObjectStorageProperties properties) {
-        return new MinioPreSignedUrlGenerator(properties);
+    public PreSignedUrlGenerator minioPreSignedUrlGenerator(MinioClient minioClient,
+                                                            ObjectStorageProperties properties) {
+        ObjectStorageSupport.requireProperty(properties.getConnection().getBucket(),
+                "framework.object-storage.connection.bucket");
+        return new MinioPreSignedUrlGenerator(minioClient, properties);
     }
 }

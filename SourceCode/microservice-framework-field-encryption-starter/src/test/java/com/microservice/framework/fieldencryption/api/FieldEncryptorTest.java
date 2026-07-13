@@ -8,6 +8,7 @@ import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * FieldEncryptor 接口测试
@@ -120,5 +121,73 @@ class FieldEncryptorTest {
             String newEncrypted = encryptor.encrypt("data-after-rotation");
             assertThat(newEncrypted).startsWith(newKey.getKeyId());
         });
+    }
+
+    @Test
+    @DisplayName("已知 keyId 不应允许伪造 AES 密文")
+    void knownKeyIdMustNotAllowForgedCiphertext() throws Exception {
+        String keyId = "key-public-id";
+        EncryptionKey key = new EncryptionKey(
+                keyId, "AES/GCM/NoPadding", java.time.Instant.now(), null, true);
+        KeyProvider keyProvider = new KeyProvider() {
+            @Override
+            public java.util.Optional<EncryptionKey> getKey(String requestedKeyId) {
+                return keyId.equals(requestedKeyId) ? java.util.Optional.of(key) : java.util.Optional.empty();
+            }
+
+            @Override
+            public EncryptionKey getActiveKey() {
+                return key;
+            }
+
+            @Override
+            public EncryptionKey rotateKey() {
+                return key;
+            }
+
+            @Override
+            public void deactivateKey(String requestedKeyId) {
+            }
+        };
+
+        contextRunner
+                .withBean(KeyProvider.class, () -> keyProvider)
+                .withBean(KeyMaterialProvider.class, () -> requestedKeyId -> new byte[32])
+                .run(context -> {
+                    FieldEncryptor encryptor = context.getBean(FieldEncryptor.class);
+                    String forged = encryptWithKeyDerivedFromId("forged", keyId);
+
+                    assertThatThrownBy(() -> encryptor.decrypt(forged))
+                            .isInstanceOf(RuntimeException.class);
+                });
+    }
+
+    @Test
+    @DisplayName("停用活跃密钥后不得继续加密")
+    void deactivatingActiveKeyMustBlockNewEncryption() {
+        contextRunner.run(context -> {
+            KeyProvider keyProvider = context.getBean(KeyProvider.class);
+            FieldEncryptor encryptor = context.getBean(FieldEncryptor.class);
+
+            keyProvider.deactivateKey(keyProvider.getActiveKey().getKeyId());
+
+            assertThatThrownBy(() -> encryptor.encrypt("must-not-encrypt"))
+                    .isInstanceOf(IllegalStateException.class);
+        });
+    }
+
+    private static String encryptWithKeyDerivedFromId(String plaintext, String keyId) throws Exception {
+        byte[] nonce = new byte[12];
+        byte[] derivedKey = java.security.MessageDigest.getInstance("SHA-256")
+                .digest(keyId.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        javax.crypto.Cipher cipher = javax.crypto.Cipher.getInstance("AES/GCM/NoPadding");
+        cipher.init(javax.crypto.Cipher.ENCRYPT_MODE,
+                new javax.crypto.spec.SecretKeySpec(derivedKey, "AES"),
+                new javax.crypto.spec.GCMParameterSpec(128, nonce));
+        byte[] cipherText = cipher.doFinal(plaintext.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        byte[] payload = new byte[nonce.length + cipherText.length];
+        System.arraycopy(nonce, 0, payload, 0, nonce.length);
+        System.arraycopy(cipherText, 0, payload, nonce.length, cipherText.length);
+        return keyId + ":" + java.util.Base64.getEncoder().encodeToString(payload);
     }
 }

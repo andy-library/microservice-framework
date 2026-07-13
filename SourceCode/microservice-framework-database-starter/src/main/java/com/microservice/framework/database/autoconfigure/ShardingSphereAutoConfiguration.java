@@ -1,10 +1,17 @@
 package com.microservice.framework.database.autoconfigure;
 
 import com.microservice.framework.database.DatabaseProperties;
+import com.microservice.framework.database.api.ReadWriteRoutingContext;
+import org.apache.shardingsphere.driver.api.yaml.YamlShardingSphereDataSourceFactory;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.annotation.Bean;
+
+import javax.sql.DataSource;
+import java.nio.charset.StandardCharsets;
 
 /**
  * ShardingSphere 自动配置
@@ -38,22 +45,47 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 @AutoConfiguration
 @EnableConfigurationProperties(DatabaseProperties.class)
 @ConditionalOnClass(name = "org.apache.shardingsphere.driver.ShardingSphereDriver")
-@ConditionalOnProperty(prefix = "framework.database", name = "sharding.enabled", havingValue = "false", matchIfMissing = true)
 public class ShardingSphereAutoConfiguration {
 
     /**
-     * ShardingSphere 配置骨架
-     * <p>
-     * 当 ShardingSphere-JDBC 在 classpath 上且分库分表未启用时，
-     * 提供读写分离的基础配置支持。
-     * <p>
-     * 具体的 ShardingSphere DataSource Bean 创建由 ShardingSphere-JDBC
-     * 自带的 Spring Boot Starter 负责，本配置类仅确保 Framework 属性
-     * 与 ShardingSphere 属性的协调一致。
+     * ShardingSphere routing plan exposed to application code and tests.
      */
-    public ShardingSphereAutoConfiguration(DatabaseProperties databaseProperties) {
-        // 当前版本仅提供条件激活检查和属性注入
-        // ShardingSphere DataSource 的创建依赖 ShardingSphere-JDBC Spring Boot Starter
-        // 后续版本将实现完整的 DataSource 代理逻辑
+    @Bean
+    @ConditionalOnMissingBean
+    RoutingPlan routingPlan(DatabaseProperties databaseProperties) {
+        return new RoutingPlan(
+                databaseProperties.getRw().isEnabled(),
+                databaseProperties.getRw().isReadAfterWriteRoutePrimary(),
+                databaseProperties.getSharding().isEnabled());
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    ReadWriteRoutingContext readWriteRoutingContext(DatabaseProperties databaseProperties) {
+        return new ReadWriteRoutingContext(databaseProperties.getRw().isReadAfterWriteRoutePrimary());
+    }
+
+    /**
+     * Creates a real ShardingSphere DataSource from framework YAML rules when
+     * sharding is enabled.
+     *
+     * @param databaseProperties framework database properties
+     * @return executable ShardingSphere DataSource
+     * @throws Exception when rules are missing or invalid
+     */
+    @Bean
+    @ConditionalOnMissingBean(DataSource.class)
+    @ConditionalOnProperty(prefix = "framework.database.sharding", name = "enabled", havingValue = "true")
+    DataSource shardingSphereDataSource(DatabaseProperties databaseProperties) throws Exception {
+        String rules = databaseProperties.getSharding().getRules();
+        if (rules == null || rules.isBlank()) {
+            throw new IllegalArgumentException("framework.database.sharding.rules must not be blank when sharding is enabled");
+        }
+        return YamlShardingSphereDataSourceFactory.createDataSource(rules.getBytes(StandardCharsets.UTF_8));
+    }
+
+    public record RoutingPlan(boolean readWriteSplittingEnabled,
+                              boolean readAfterWriteRoutePrimary,
+                              boolean shardingEnabled) {
     }
 }

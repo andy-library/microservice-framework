@@ -7,14 +7,23 @@ import com.microservice.framework.xxljob.api.JobHandler;
 import com.microservice.framework.xxljob.api.JobResult;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
+import org.springframework.beans.factory.DisposableBean;
+import org.springframework.beans.factory.InitializingBean;
+import org.springframework.util.StringUtils;
 
-import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /**
  * XXL-JOB Starter 自动配置
@@ -33,6 +42,11 @@ import java.util.concurrent.ConcurrentHashMap;
 @ConditionalOnProperty(prefix = "framework.xxl-job", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class XxlJobAutoConfiguration {
 
+    @Bean
+    public XxlJobRequiredPropertiesValidator xxlJobRequiredPropertiesValidator(XxlJobProperties properties) {
+        return new XxlJobRequiredPropertiesValidator(properties);
+    }
+
     /**
      * 注册默认 IdempotentJobHandler Bean
      * <p>
@@ -48,14 +62,54 @@ public class XxlJobAutoConfiguration {
      */
     @Bean
     @ConditionalOnMissingBean(IdempotentJobHandler.class)
+    @ConditionalOnBean(JobHandler.class)
     @ConditionalOnProperty(prefix = "framework.xxl-job.idempotency", name = "enabled", havingValue = "true", matchIfMissing = true)
-    public IdempotentJobHandler idempotentJobHandler(XxlJobProperties properties) {
-        return new MemoryIdempotentJobHandler(new MemoryIdempotencyStore(), properties);
+    public IdempotentJobHandler idempotentJobHandler(XxlJobProperties properties, JobHandler jobHandler) {
+        return new MemoryIdempotentJobHandler(new MemoryIdempotencyStore(), properties, jobHandler);
     }
 
     // ========================================================================
     // 默认内部实现
     // ========================================================================
+
+    /**
+     * 启动期必填配置校验。
+     */
+    static class XxlJobRequiredPropertiesValidator implements InitializingBean {
+
+        private final XxlJobProperties properties;
+
+        XxlJobRequiredPropertiesValidator(XxlJobProperties properties) {
+            this.properties = properties;
+        }
+
+        @Override
+        public void afterPropertiesSet() {
+            if (!Boolean.TRUE.equals(properties.getEnabled())) {
+                return;
+            }
+            requireText(properties.getAdmin().getAddresses(), "framework.xxl-job.admin.addresses");
+            requireText(properties.getAdmin().getAppName(), "framework.xxl-job.admin.app-name");
+            requireText(properties.getExecutor().getAppName(), "framework.xxl-job.executor.app-name");
+            requirePositive(properties.getExecutor().getPort(), "framework.xxl-job.executor.port");
+            requireText(properties.getExecutor().getLogPath(), "framework.xxl-job.executor.log-path");
+            requirePositive(properties.getExecutor().getLogRetentionDays(),
+                    "framework.xxl-job.executor.log-retention-days");
+            requirePositive(properties.getTimeout().getDefaultTimeout(), "framework.xxl-job.timeout.default-timeout");
+        }
+
+        private void requireText(String value, String propertyName) {
+            if (!StringUtils.hasText(value)) {
+                throw new IllegalStateException(propertyName + " must be configured when framework.xxl-job.enabled=true");
+            }
+        }
+
+        private void requirePositive(Integer value, String propertyName) {
+            if (value == null || value < 1) {
+                throw new IllegalStateException(propertyName + " must be greater than 0 when framework.xxl-job.enabled=true");
+            }
+        }
+    }
 
     /**
      * 基于 ConcurrentHashMap 的内存幂等存储
@@ -92,7 +146,20 @@ public class XxlJobAutoConfiguration {
          * @return jobId + "-" + executorId 组合
          */
         public String buildKey(JobExecutionContext context) {
-            return context.getJobId() + "-" + context.getExecutorId();
+            return encode("jobId", context.getJobId())
+                    + "|" + encode("executorId", context.getExecutorId())
+                    + "|" + encode("param", context.getParam())
+                    + "|" + encode("shardIndex", context.getShardIndex())
+                    + "|" + encode("shardTotal", context.getShardTotal())
+                    + "|" + encode("triggerTime", context.getTriggerTime());
+        }
+
+        private String encode(String name, Object value) {
+            if (value == null) {
+                return name + "=-1:";
+            }
+            String text = value.toString();
+            return name + "=" + text.length() + ":" + text;
         }
     }
 
@@ -102,14 +169,17 @@ public class XxlJobAutoConfiguration {
      * 实现 {@link IdempotentJobHandler} 接口，在 {@link JobHandler} 基础上
      * 增加 jobId + executorId 的幂等保护。
      */
-    static class MemoryIdempotentJobHandler implements IdempotentJobHandler {
+    static class MemoryIdempotentJobHandler implements IdempotentJobHandler, DisposableBean {
 
         private final MemoryIdempotencyStore store;
         private final XxlJobProperties properties;
+        private final JobHandler delegate;
+        private final ExecutorService executionExecutor = Executors.newVirtualThreadPerTaskExecutor();
 
-        MemoryIdempotentJobHandler(MemoryIdempotencyStore store, XxlJobProperties properties) {
+        MemoryIdempotentJobHandler(MemoryIdempotencyStore store, XxlJobProperties properties, JobHandler delegate) {
             this.store = store;
             this.properties = properties;
+            this.delegate = delegate;
         }
 
         @Override
@@ -131,15 +201,33 @@ public class XxlJobAutoConfiguration {
                 return JobResult.success("Idempotent check: duplicate execution skipped for jobId=" + context.getJobId());
             }
 
-            // 此处作为默认实现，不做实际业务执行
-            // 业务应注册自己的 JobHandler 并通过 IdempotentJobHandler 装饰
-            return JobResult.success();
+            Future<JobResult> future = executionExecutor.submit(() -> delegate.execute(context));
+            try {
+                JobResult result = future.get(properties.getTimeout().getDefaultTimeout(), TimeUnit.SECONDS);
+                if (result.isSuccess()) {
+                    markProcessed(context);
+                }
+                return result;
+            } catch (TimeoutException ex) {
+                future.cancel(true);
+                return JobResult.timeout("Execution exceeded timeout of "
+                        + properties.getTimeout().getDefaultTimeout() + " seconds");
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+                return JobResult.fail("Execution interrupted");
+            } catch (ExecutionException ex) {
+                return JobResult.fail("Execution failed: " + ex.getCause().getMessage());
+            }
         }
 
         @Override
         public JobHandler getDelegate() {
-            // 默认装饰器无 delegate，业务通过自定义装饰器包装实际 JobHandler
-            return null;
+            return delegate;
+        }
+
+        @Override
+        public void destroy() {
+            executionExecutor.shutdownNow();
         }
     }
 }

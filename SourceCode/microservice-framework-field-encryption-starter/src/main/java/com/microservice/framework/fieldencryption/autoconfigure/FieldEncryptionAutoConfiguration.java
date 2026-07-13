@@ -3,18 +3,21 @@ package com.microservice.framework.fieldencryption.autoconfigure;
 import com.microservice.framework.fieldencryption.FieldEncryptionProperties;
 import com.microservice.framework.fieldencryption.api.EncryptionKey;
 import com.microservice.framework.fieldencryption.api.FieldEncryptor;
+import com.microservice.framework.fieldencryption.api.KeyMaterialProvider;
 import com.microservice.framework.fieldencryption.api.KeyProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
+import org.springframework.core.env.Environment;
+import org.springframework.core.env.Profiles;
 
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.Base64;
-import java.util.HexFormat;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
@@ -54,6 +57,21 @@ public class FieldEncryptionAutoConfiguration {
     }
 
     /**
+     * Provides local key material only outside production. Production deployments
+     * must provide a KMS-, vault-, or HSM-backed {@link KeyMaterialProvider}.
+     */
+    @Bean
+    @ConditionalOnMissingBean(KeyMaterialProvider.class)
+    public KeyMaterialProvider localKeyMaterialProvider(FieldEncryptionProperties properties,
+                                                        Environment environment) {
+        if (environment.acceptsProfiles(Profiles.of("prod"))) {
+            throw new IllegalStateException(
+                    "A KeyMaterialProvider backed by real secret material is required in prod");
+        }
+        return new LocalKeyMaterialProvider(properties);
+    }
+
+    /**
      * 注册 FieldEncryptor Bean
      * <p>
      * 当容器中不存在 FieldEncryptor 时，注册默认实现。
@@ -65,8 +83,10 @@ public class FieldEncryptionAutoConfiguration {
      */
     @Bean
     @ConditionalOnMissingBean(FieldEncryptor.class)
-    public FieldEncryptor fieldEncryptor(KeyProvider keyProvider, FieldEncryptionProperties properties) {
-        return new DefaultFieldEncryptor(keyProvider, properties);
+    public FieldEncryptor fieldEncryptor(KeyProvider keyProvider,
+                                         KeyMaterialProvider keyMaterialProvider,
+                                         FieldEncryptionProperties properties) {
+        return new DefaultFieldEncryptor(keyProvider, keyMaterialProvider, properties);
     }
 
     // ========================================================================
@@ -84,7 +104,6 @@ public class FieldEncryptionAutoConfiguration {
         private final AtomicLong keyCounter = new AtomicLong(0);
         private volatile EncryptionKey activeKey;
         private final FieldEncryptionProperties properties;
-        private final SecureRandom secureRandom = new SecureRandom();
 
         DefaultKeyProvider(FieldEncryptionProperties properties) {
             this.properties = properties;
@@ -107,17 +126,23 @@ public class FieldEncryptionAutoConfiguration {
 
         @Override
         public EncryptionKey getActiveKey() {
-            return activeKey;
+            EncryptionKey key = activeKey;
+            if (key == null || !key.isActive() || key.isExpired()) {
+                throw new IllegalStateException("No active encryption key is available");
+            }
+            return key;
         }
 
         @Override
-        public EncryptionKey rotateKey() {
+        public synchronized EncryptionKey rotateKey() {
             // Deactivate current active key
             EncryptionKey oldActive = activeKey;
-            EncryptionKey deactivatedOld = new EncryptionKey(
-                    oldActive.getKeyId(), oldActive.getAlgorithm(),
-                    oldActive.getCreatedAt(), oldActive.getExpiresAt().orElse(null), false);
-            keyStore.put(deactivatedOld.getKeyId(), deactivatedOld);
+            if (oldActive != null) {
+                EncryptionKey deactivatedOld = new EncryptionKey(
+                        oldActive.getKeyId(), oldActive.getAlgorithm(),
+                        oldActive.getCreatedAt(), oldActive.getExpiresAt().orElse(null), false);
+                keyStore.put(deactivatedOld.getKeyId(), deactivatedOld);
+            }
 
             // Generate new active key
             EncryptionKey newActive = generateNewKey();
@@ -128,14 +153,45 @@ public class FieldEncryptionAutoConfiguration {
         }
 
         @Override
-        public void deactivateKey(String keyId) {
+        public synchronized void deactivateKey(String keyId) {
             EncryptionKey key = keyStore.get(keyId);
             if (key != null) {
                 EncryptionKey deactivated = new EncryptionKey(
                         key.getKeyId(), key.getAlgorithm(),
                         key.getCreatedAt(), key.getExpiresAt().orElse(null), false);
                 keyStore.put(deactivated.getKeyId(), deactivated);
+                if (keyId.equals(activeKey != null ? activeKey.getKeyId() : null)) {
+                    activeKey = null;
+                }
             }
+        }
+    }
+
+    /**
+     * In-memory random key material for development and tests only.
+     */
+    static class LocalKeyMaterialProvider implements KeyMaterialProvider {
+
+        private final ConcurrentHashMap<String, byte[]> materialByKeyId = new ConcurrentHashMap<>();
+        private final SecureRandom secureRandom = new SecureRandom();
+        private final int keySizeBytes;
+
+        LocalKeyMaterialProvider(FieldEncryptionProperties properties) {
+            int keySizeBits = properties.getAlgorithm().getKeySize();
+            if (keySizeBits % Byte.SIZE != 0) {
+                throw new IllegalArgumentException("AES key size must be a multiple of 8 bits");
+            }
+            this.keySizeBytes = keySizeBits / Byte.SIZE;
+        }
+
+        @Override
+        public byte[] getKeyMaterial(String keyId) {
+            byte[] material = materialByKeyId.computeIfAbsent(keyId, ignored -> {
+                byte[] generated = new byte[keySizeBytes];
+                secureRandom.nextBytes(generated);
+                return generated;
+            });
+            return Arrays.copyOf(material, material.length);
         }
     }
 
@@ -148,11 +204,14 @@ public class FieldEncryptionAutoConfiguration {
     static class DefaultFieldEncryptor implements FieldEncryptor {
 
         private final KeyProvider keyProvider;
+        private final KeyMaterialProvider keyMaterialProvider;
         private final FieldEncryptionProperties properties;
         private final SecureRandom secureRandom = new SecureRandom();
 
-        DefaultFieldEncryptor(KeyProvider keyProvider, FieldEncryptionProperties properties) {
+        DefaultFieldEncryptor(KeyProvider keyProvider, KeyMaterialProvider keyMaterialProvider,
+                              FieldEncryptionProperties properties) {
             this.keyProvider = keyProvider;
+            this.keyMaterialProvider = keyMaterialProvider;
             this.properties = properties;
         }
 
@@ -162,13 +221,15 @@ public class FieldEncryptionAutoConfiguration {
                 return null;
             }
             EncryptionKey activeKey = keyProvider.getActiveKey();
+            if (!activeKey.isActive() || activeKey.isExpired()) {
+                throw new IllegalStateException("Active encryption key is not usable");
+            }
             try {
                 // Generate nonce (12 bytes for GCM)
                 byte[] nonce = new byte[12];
                 secureRandom.nextBytes(nonce);
 
-                // Generate AES key from keyId (deterministic for same keyId)
-                byte[] aesKey = deriveKeyMaterial(activeKey.getKeyId(), properties.getAlgorithm().getKeySize());
+                byte[] aesKey = getKeyMaterial(activeKey.getKeyId());
 
                 java.security.spec.AlgorithmParameterSpec gcmSpec =
                         new javax.crypto.spec.GCMParameterSpec(128, nonce);
@@ -221,7 +282,7 @@ public class FieldEncryptionAutoConfiguration {
                 byte[] cipherData = new byte[combined.length - 12];
                 System.arraycopy(combined, 12, cipherData, 0, cipherData.length);
 
-                byte[] aesKey = deriveKeyMaterial(key.getKeyId(), properties.getAlgorithm().getKeySize());
+                byte[] aesKey = getKeyMaterial(key.getKeyId());
 
                 java.security.spec.AlgorithmParameterSpec gcmSpec =
                         new javax.crypto.spec.GCMParameterSpec(128, nonce);
@@ -251,37 +312,14 @@ public class FieldEncryptionAutoConfiguration {
             return false;
         }
 
-        /**
-         * 从 keyId 派生密钥材料
-         * <p>
-         * 使用 SHA-256 哈希将 keyId 映射为固定长度的 AES 密钥。
-         * 这是简化的实现，生产环境应使用 KMS 提供的真实密钥材料。
-         */
-        private byte[] deriveKeyMaterial(String keyId, int keySizeBits) {
-            int keySizeBytes = keySizeBits / 8;
-            byte[] hash;
-            try {
-                java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
-                hash = digest.digest(keyId.getBytes(StandardCharsets.UTF_8));
-            } catch (java.security.NoSuchAlgorithmException e) {
-                throw new RuntimeException("SHA-256 not available", e);
+        private byte[] getKeyMaterial(String keyId) {
+            byte[] material = keyMaterialProvider.getKeyMaterial(keyId);
+            int expectedLength = properties.getAlgorithm().getKeySize() / Byte.SIZE;
+            if (material == null || material.length != expectedLength) {
+                throw new IllegalStateException("Key material for " + keyId
+                        + " must contain exactly " + expectedLength + " bytes");
             }
-
-            // For AES-256, SHA-256 produces exactly 32 bytes
-            // For AES-128, truncate to 16 bytes
-            byte[] keyMaterial = new byte[keySizeBytes];
-            if (hash.length >= keySizeBytes) {
-                System.arraycopy(hash, 0, keyMaterial, 0, keySizeBytes);
-            } else {
-                // Pad with repeated hash for key sizes > 32 bytes
-                int offset = 0;
-                while (offset < keySizeBytes) {
-                    int copyLen = Math.min(hash.length, keySizeBytes - offset);
-                    System.arraycopy(hash, 0, keyMaterial, offset, copyLen);
-                    offset += copyLen;
-                }
-            }
-            return keyMaterial;
+            return Arrays.copyOf(material, material.length);
         }
     }
 }

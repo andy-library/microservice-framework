@@ -6,9 +6,21 @@ import com.microservice.framework.common.context.ThreadLocalContextAdapter;
 import com.microservice.framework.feign.FeignProperties;
 import com.microservice.framework.feign.api.FeignContextPropagator;
 import com.microservice.framework.feign.api.ServiceIdentityProvider;
+import feign.Request;
 import feign.RequestInterceptor;
 import feign.RequestTemplate;
+import feign.RetryableException;
+import feign.Retryer;
+import feign.Client;
+import feign.Response;
+import feign.codec.ErrorDecoder;
+import feign.httpclient.ApacheHttpClient;
+import io.micrometer.core.instrument.MeterRegistry;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.SmartInitializingSingleton;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -16,8 +28,14 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
+import java.io.IOException;
 
 /**
  * Feign 自动配置
@@ -38,6 +56,79 @@ import java.util.Map;
 @ConditionalOnProperty(prefix = "framework.feign", name = "enabled",
         havingValue = "true", matchIfMissing = true)
 public class FeignAutoConfiguration {
+
+    @Bean
+    @ConditionalOnMissingBean(PoolingHttpClientConnectionManager.class)
+    public PoolingHttpClientConnectionManager feignConnectionManager(FeignProperties properties) {
+        var connection = properties.getConnection();
+        var manager = new PoolingHttpClientConnectionManager(
+                Math.max(1, connection.getConnectionTimeToLive()), TimeUnit.MILLISECONDS);
+        manager.setMaxTotal(connection.getMaxConnections());
+        manager.setDefaultMaxPerRoute(connection.getMaxConnectionsPerRoute());
+        return manager;
+    }
+
+    @Bean(destroyMethod = "close")
+    @ConditionalOnMissingBean(CloseableHttpClient.class)
+    public CloseableHttpClient feignApacheHttpClient(PoolingHttpClientConnectionManager connectionManager) {
+        return HttpClients.custom().setConnectionManager(connectionManager).build();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(Client.class)
+    public Client feignClient(CloseableHttpClient httpClient, ObjectProvider<MeterRegistry> meterRegistry) {
+        return new MeteredFeignClient(new ApacheHttpClient(httpClient), meterRegistry.getIfAvailable());
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(ErrorDecoder.class)
+    public ErrorDecoder feignErrorDecoder(FeignProperties properties) {
+        return new RetryableStatusErrorDecoder(properties.getRetry().getRetryOnStatuses());
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(Request.Options.class)
+    public Request.Options feignRequestOptions(FeignProperties properties) {
+        FeignProperties.ConnectionProperties connection = properties.getConnection();
+        int totalBudget = connection.getTimeout();
+        int connectTimeout = boundedTimeout(connection.getConnectTimeout(), totalBudget);
+        int readTimeout = boundedTimeout(connection.getReadTimeout(), totalBudget);
+        return new Request.Options(
+                connectTimeout, TimeUnit.MILLISECONDS,
+                readTimeout, TimeUnit.MILLISECONDS,
+                true);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(Retryer.class)
+    public Retryer feignRetryer(FeignProperties properties) {
+        FeignProperties.RetryProperties retry = properties.getRetry();
+        if (!retry.isEnabled()) {
+            return Retryer.NEVER_RETRY;
+        }
+        long interval = retry.getRetryInterval();
+        return new BudgetAwareRetryer(
+                retry.getMaxRetries(),
+                interval,
+                properties.getConnection().getTimeout(),
+                retry.getIdempotentMethods());
+    }
+
+    @Bean
+    public SmartInitializingSingleton feignConfiguredClaimsValidator(FeignProperties properties) {
+        return () -> {
+            if (properties.getCircuitBreaker().isEnabled()) {
+                throw new IllegalStateException(
+                        "framework.feign.circuit-breaker.enabled=true cannot be honored by this starter: "
+                                + "no circuit-breaker implementation is auto-configured");
+            }
+            if (properties.getIsolation().isEnabled()) {
+                throw new IllegalStateException(
+                        "framework.feign.isolation.enabled=true cannot be honored by this starter: "
+                                + "no isolation implementation is auto-configured");
+            }
+        };
+    }
 
     /**
      * 上下文传播实现
@@ -153,10 +244,7 @@ public class FeignAutoConfiguration {
 
         @Override
         public String getServiceToken() {
-            // Default implementation returns empty token;
-            // users should provide their own ServiceIdentityProvider bean
-            // with a real authentication mechanism
-            return "";
+            return null;
         }
 
         @Override
@@ -200,14 +288,156 @@ public class FeignAutoConfiguration {
             if (properties.getServiceIdentity().isEnabled()) {
                 ServiceIdentityProvider provider = identityProvider.getIfAvailable();
                 if (provider != null) {
-                    template.header(ContextKeys.SERVICE_IDENTITY, provider.getServiceId());
+                    addHeaderIfPresent(template, ContextKeys.SERVICE_IDENTITY, provider.getServiceId());
                     String token = provider.getServiceToken();
-                    if (token != null && !token.isEmpty()) {
-                        template.header("X-Service-Token", token);
+                    addHeaderIfPresent(template, "X-Service-Token", token);
+                    Map<String, String> headers = provider.getHeaders();
+                    if (headers != null) {
+                        headers.forEach((name, value) -> addHeaderIfPresent(template, name, value));
                     }
-                    provider.getHeaders().forEach(template::header);
                 }
             }
         }
+    }
+
+    static class BudgetAwareRetryer implements Retryer {
+
+        private final int maxRetries;
+        private final long intervalMillis;
+        private final long totalBudgetMillis;
+        private final Set<String> idempotentMethods;
+        private final long startedAtNanos;
+        private int retriesAttempted;
+
+        BudgetAwareRetryer(int maxRetries, long intervalMillis, long totalBudgetMillis,
+                           Set<String> idempotentMethods) {
+            this(maxRetries, intervalMillis, totalBudgetMillis, idempotentMethods, System.nanoTime());
+        }
+
+        private BudgetAwareRetryer(int maxRetries, long intervalMillis, long totalBudgetMillis,
+                                   Set<String> idempotentMethods, long startedAtNanos) {
+            this.maxRetries = Math.max(0, maxRetries);
+            this.intervalMillis = Math.max(0, intervalMillis);
+            this.totalBudgetMillis = Math.max(0, totalBudgetMillis);
+            this.idempotentMethods = normalizeMethods(idempotentMethods);
+            this.startedAtNanos = startedAtNanos;
+        }
+
+        @Override
+        public void continueOrPropagate(RetryableException exception) {
+            if (!isIdempotent(exception.method())) {
+                throw exception;
+            }
+            if (retriesAttempted >= maxRetries) {
+                throw exception;
+            }
+            if (wouldExceedBudget()) {
+                throw exception;
+            }
+            retriesAttempted++;
+            sleep();
+        }
+
+        @Override
+        public Retryer clone() {
+            return new BudgetAwareRetryer(maxRetries, intervalMillis, totalBudgetMillis, idempotentMethods);
+        }
+
+        private boolean isIdempotent(Request.HttpMethod method) {
+            return method != null && idempotentMethods.contains(method.name());
+        }
+
+        private boolean wouldExceedBudget() {
+            if (totalBudgetMillis <= 0) {
+                return true;
+            }
+            long elapsedMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedAtNanos);
+            return elapsedMillis + intervalMillis >= totalBudgetMillis;
+        }
+
+        private void sleep() {
+            if (intervalMillis <= 0) {
+                return;
+            }
+            try {
+                Thread.sleep(intervalMillis);
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+                throw new RetryableException(-1, "Interrupted while waiting to retry",
+                        Request.HttpMethod.GET, ex, (Long) null, null);
+            }
+        }
+
+        private static Set<String> normalizeMethods(Set<String> methods) {
+            if (methods == null || methods.isEmpty()) {
+                return Collections.emptySet();
+            }
+            Set<String> normalized = new HashSet<>();
+            for (String method : methods) {
+                if (hasText(method)) {
+                    normalized.add(method.trim().toUpperCase(Locale.ROOT));
+                }
+            }
+            return Collections.unmodifiableSet(normalized);
+        }
+    }
+
+    public static final class MeteredFeignClient implements Client {
+        private final Client delegate;
+        private final MeterRegistry registry;
+
+        MeteredFeignClient(Client delegate, MeterRegistry registry) {
+            this.delegate = delegate;
+            this.registry = registry;
+        }
+
+        @Override
+        public Response execute(Request request, Request.Options options) throws IOException {
+            try {
+                return delegate.execute(request, options);
+            } finally {
+                if (registry != null) {
+                    registry.counter("framework.feign.client.requests", "method", request.httpMethod().name()).increment();
+                }
+            }
+        }
+    }
+
+    static final class RetryableStatusErrorDecoder implements ErrorDecoder {
+        private final Set<Integer> retryableStatuses;
+        private final ErrorDecoder delegate = new ErrorDecoder.Default();
+
+        RetryableStatusErrorDecoder(java.util.List<Integer> retryableStatuses) {
+            this.retryableStatuses = retryableStatuses == null ? Set.of() : Set.copyOf(retryableStatuses);
+        }
+
+        @Override
+        public Exception decode(String methodKey, Response response) {
+            if (retryableStatuses.contains(response.status())) {
+                return new RetryableException(response.status(), "Retryable HTTP status " + response.status(),
+                        response.request().httpMethod(), (Long) null, response.request());
+            }
+            return delegate.decode(methodKey, response);
+        }
+    }
+
+    private static int boundedTimeout(int configuredTimeout, int totalBudget) {
+        if (totalBudget <= 0) {
+            return configuredTimeout;
+        }
+        if (configuredTimeout <= 0) {
+            return totalBudget;
+        }
+        return Math.min(configuredTimeout, totalBudget);
+    }
+
+    private static void addHeaderIfPresent(RequestTemplate template, String name, String value) {
+        if (hasText(name) && hasText(value)) {
+            template.header(name, value.trim());
+        }
+    }
+
+    private static boolean hasText(String value) {
+        return value != null && !value.trim().isEmpty();
     }
 }

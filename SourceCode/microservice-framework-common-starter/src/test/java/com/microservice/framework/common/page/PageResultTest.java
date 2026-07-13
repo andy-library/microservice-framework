@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -128,6 +129,17 @@ class PageResultTest {
             PageResult<String> result = PageResult.of(2, mutableItems, 1, 20);
             assertThatThrownBy(() -> result.getItems().add("c"))
                     .isInstanceOf(UnsupportedOperationException.class);
+        }
+
+        @Test
+        @DisplayName("items 应与调用方的可变列表隔离")
+        void itemsShouldBeDefensivelyCopied() {
+            List<String> mutableItems = new ArrayList<>(Arrays.asList("a", "b"));
+            PageResult<String> result = PageResult.of(2, mutableItems, 1, 20);
+
+            mutableItems.clear();
+
+            assertThat(result.getItems()).containsExactly("a", "b");
         }
     }
 

@@ -43,10 +43,6 @@ public class ObservabilityProductionSafetyAutoConfiguration {
             throw new IllegalStateException(
                     "framework.observability.tracing.enabled cannot be disabled in prod profile");
         }
-        if (tracing.getBaggageKeys() == null || tracing.getBaggageKeys().isEmpty()) {
-            throw new IllegalStateException(
-                    "framework.observability.tracing.baggage-keys must not be empty in prod profile");
-        }
     }
 
     private static void validateMetrics(ObservabilityProperties.MetricsProperties metrics) {

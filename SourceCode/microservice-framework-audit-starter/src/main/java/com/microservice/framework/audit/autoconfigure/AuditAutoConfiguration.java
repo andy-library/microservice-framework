@@ -4,18 +4,23 @@ import com.microservice.framework.audit.AuditProperties;
 import com.microservice.framework.audit.api.AuditEntry;
 import com.microservice.framework.audit.api.AuditQuery;
 import com.microservice.framework.audit.api.AuditRecorder;
+import com.microservice.framework.audit.api.AuditTamperEvidenceKeyProvider;
 import com.microservice.framework.common.page.PageRequest;
 import com.microservice.framework.common.page.PageResult;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.beans.factory.SmartInitializingSingleton;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.context.annotation.Profile;
 import org.springframework.core.env.Environment;
 import org.springframework.core.env.Profiles;
 import org.springframework.jdbc.core.JdbcTemplate;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -35,7 +40,6 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 @AutoConfiguration
 @EnableConfigurationProperties(AuditProperties.class)
-@ConditionalOnProperty(prefix = "framework.audit", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class AuditAutoConfiguration {
 
     /**
@@ -49,9 +53,12 @@ public class AuditAutoConfiguration {
      */
     @Bean
     @ConditionalOnMissingBean(AuditRecorder.class)
+    @ConditionalOnExpression("${framework.audit.enabled:true}")
     @ConditionalOnProperty(prefix = "framework.audit.storage", name = "type", havingValue = "JDBC")
-    public AuditRecorder jdbcAuditRecorder(JdbcTemplate jdbcTemplate, AuditProperties properties) {
-        return new JdbcAuditRecorder(jdbcTemplate, properties);
+    public AuditRecorder jdbcAuditRecorder(JdbcTemplate jdbcTemplate, AuditProperties properties,
+                                           AuditTamperEvidenceKeyProvider keyProvider,
+                                           ObjectProvider<org.springframework.transaction.PlatformTransactionManager> transactionManager) {
+        return new JdbcAuditRecorder(jdbcTemplate, properties, keyProvider, transactionManager.getIfAvailable());
     }
 
     /**
@@ -59,30 +66,72 @@ public class AuditAutoConfiguration {
      */
     @Bean
     @ConditionalOnMissingBean(AuditRecorder.class)
+    @ConditionalOnExpression("${framework.audit.enabled:true}")
     @ConditionalOnProperty(prefix = "framework.audit.storage", name = "type", havingValue = "DATABASE")
-    public AuditRecorder databaseAuditRecorder(JdbcTemplate jdbcTemplate, AuditProperties properties) {
-        return new JdbcAuditRecorder(jdbcTemplate, properties);
+    public AuditRecorder databaseAuditRecorder(JdbcTemplate jdbcTemplate, AuditProperties properties,
+                                               AuditTamperEvidenceKeyProvider keyProvider,
+                                               ObjectProvider<org.springframework.transaction.PlatformTransactionManager> transactionManager) {
+        return new JdbcAuditRecorder(jdbcTemplate, properties, keyProvider, transactionManager.getIfAvailable());
     }
 
     @Bean
     @ConditionalOnMissingBean(AuditRecorder.class)
+    @ConditionalOnExpression("${framework.audit.enabled:true}")
     @ConditionalOnProperty(prefix = "framework.audit.storage", name = "type", havingValue = "MEMORY", matchIfMissing = true)
-    public AuditRecorder auditRecorder(AuditProperties properties) {
-        return new InMemoryAuditRecorder(properties);
+    public AuditRecorder auditRecorder(AuditProperties properties, AuditTamperEvidenceKeyProvider keyProvider) {
+        return new InMemoryAuditRecorder(properties, keyProvider);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(AuditTamperEvidenceKeyProvider.class)
+    @ConditionalOnProperty(prefix = "framework.audit.security", name = "tamper-evidence-key")
+    public AuditTamperEvidenceKeyProvider configuredAuditTamperEvidenceKeyProvider(AuditProperties properties) {
+        return () -> {
+            String key = properties.getSecurity().getTamperEvidenceKey();
+            if (key == null || key.isBlank()) {
+                throw new IllegalStateException("framework.audit.security.tamper-evidence-key must not be blank");
+            }
+            return key.getBytes(StandardCharsets.UTF_8);
+        };
+    }
+
+    @Bean
+    @Profile("!prod")
+    @ConditionalOnMissingBean(AuditTamperEvidenceKeyProvider.class)
+    public AuditTamperEvidenceKeyProvider developmentAuditTamperEvidenceKeyProvider() {
+        return () -> "dev-test-audit-key".getBytes(StandardCharsets.UTF_8);
     }
 
     /**
      * 阻止不受支持的存储类型和生产环境中的危险建表行为。
      */
     @Bean
-    public SmartInitializingSingleton auditProductionSafetyValidator(AuditProperties properties, Environment environment) {
+    public SmartInitializingSingleton auditProductionSafetyValidator(
+            AuditProperties properties,
+            Environment environment,
+            ObjectProvider<AuditTamperEvidenceKeyProvider> keyProvider) {
         return () -> {
+            if (Boolean.TRUE.equals(properties.getBside().getMandatory()) && !properties.isEnabled()) {
+                throw new IllegalStateException(
+                        "framework.audit.enabled cannot be disabled when framework.audit.bside.mandatory=true");
+            }
             String storageType = properties.getStorage().getType();
             if (!"MEMORY".equals(storageType) && !"JDBC".equals(storageType) && !"DATABASE".equals(storageType)) {
                 throw new IllegalStateException("framework.audit.storage.type must be MEMORY, JDBC, or DATABASE");
             }
+            if (Boolean.TRUE.equals(properties.getStorage().getAsync())) {
+                throw new IllegalStateException(
+                        "framework.audit.storage.async=true is not supported until a durable async outbox is implemented");
+            }
             if (!environment.acceptsProfiles(Profiles.of("prod"))) {
                 return;
+            }
+            if (Boolean.TRUE.equals(properties.getBside().getMandatory())) {
+                AuditTamperEvidenceKeyProvider provider = keyProvider.getIfAvailable();
+                if (provider == null || provider.currentKey().length == 0) {
+                    throw new IllegalStateException(
+                            "mandatory prod audit requires an external audit tamper evidence key provider");
+                }
             }
             if ("MEMORY".equals(storageType)) {
                 throw new IllegalStateException("framework.audit.storage.type=MEMORY is not allowed in prod profile");
@@ -107,20 +156,23 @@ public class AuditAutoConfiguration {
 
         private final ConcurrentHashMap<String, AuditEntry> store = new ConcurrentHashMap<>();
         private final AuditProperties properties;
+        private final AuditTamperEvidenceKeyProvider keyProvider;
 
-        InMemoryAuditRecorder(AuditProperties properties) {
+        InMemoryAuditRecorder(AuditProperties properties, AuditTamperEvidenceKeyProvider keyProvider) {
             this.properties = properties;
+            this.keyProvider = keyProvider;
         }
 
         @Override
         public void record(AuditEntry entry) {
-            store.put(entry.getId(), entry);
+            AuditEntry normalized = normalize(entry);
+            store.put(normalized.getId(), normalized);
         }
 
         @Override
         public void recordBatch(List<AuditEntry> entries) {
             for (AuditEntry entry : entries) {
-                store.put(entry.getId(), entry);
+                record(entry);
             }
         }
 
@@ -128,7 +180,7 @@ public class AuditAutoConfiguration {
         public Optional<AuditEntry> getEntry(String id) {
             AuditEntry entry = store.get(id);
             if (entry != null && properties.getSecurity().getChecksumEnabled()) {
-                if (!entry.verifyChecksum(properties.getSecurity().getChecksumAlgorithm())) {
+                if (!entry.verifyChecksum(properties.getSecurity().getChecksumAlgorithm(), keyProvider.currentKey())) {
                     throw new IllegalStateException("Audit entry checksum verification failed for id: " + id);
                 }
             }
@@ -180,6 +232,12 @@ public class AuditAutoConfiguration {
 
             List<AuditEntry> pageContent = filtered.subList(fromIndex, toIndex);
             return PageResult.of(total, pageContent, pageRequest.getPageNumber(), pageRequest.getPageSize());
+        }
+
+        private AuditEntry normalize(AuditEntry entry) {
+            return new AuditEntry(entry.getId(), entry.getEventType(), entry.getOperatorId().orElse(null),
+                    entry.getTargetId().orElse(null), entry.getAction(), entry.getDetail().orElse(null),
+                    entry.getTimestamp(), properties.getSecurity().getChecksumAlgorithm(), keyProvider.currentKey());
         }
     }
 }

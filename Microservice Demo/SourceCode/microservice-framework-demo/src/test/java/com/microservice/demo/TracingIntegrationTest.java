@@ -114,8 +114,8 @@ public class TracingIntegrationTest {
                 .get("/api/demo/tracing/current")
                 .then()
                 .statusCode(200)
-                .body("traceId", notNullValue())
-                .body("spanId", notNullValue());
+                .body("data.traceId", notNullValue())
+                .body("data.spanId", notNullValue());
     }
 
     @Test
@@ -127,9 +127,9 @@ public class TracingIntegrationTest {
                 .get("/api/demo/tracing/baggage")
                 .then()
                 .statusCode(200)
-                .body("userId", equalTo("user123"))
-                .body("tenantId", equalTo("tenant456"))
-                .body("traceId", notNullValue());
+                .body("data.userId", equalTo("user123"))
+                .body("data.tenantId", equalTo("tenant456"))
+                .body("data.traceId", notNullValue());
     }
 
     @Test
@@ -139,8 +139,8 @@ public class TracingIntegrationTest {
                 .get("/api/demo/tracing/sampling")
                 .then()
                 .statusCode(200)
-                .body("sampled", notNullValue())
-                .body("traceId", notNullValue());
+                .body("data.sampled", notNullValue())
+                .body("data.traceId", notNullValue());
     }
 
     @Test
@@ -196,10 +196,10 @@ public class TracingIntegrationTest {
 
         respWithHeader.then()
                 .statusCode(200)
-                .body("requestId", notNullValue())
-                .body("traceId", notNullValue());
+                .body("data.requestId", notNullValue())
+                .body("data.traceId", notNullValue());
 
-        assertEquals((Object) respWithHeader.path("traceId"), (Object) respWithHeader.path("requestId"),
+        assertEquals((Object) respWithHeader.path("data.traceId"), (Object) respWithHeader.path("data.requestId"),
                 "TraceId should override Header as per Priority 1");
 
         // 2. 测试降级到 TraceId (Priority 1 wins)
@@ -209,11 +209,11 @@ public class TracingIntegrationTest {
 
         response.then()
                 .statusCode(200)
-                .body("requestId", notNullValue())
-                .body("traceId", notNullValue());
+                .body("data.requestId", notNullValue())
+                .body("data.traceId", notNullValue());
 
-        String traceId = response.path("traceId");
-        String requestId = response.path("requestId");
+        String traceId = response.path("data.traceId");
+        String requestId = response.path("data.requestId");
         assertEquals((Object) traceId, (Object) requestId, "RequestId should equal TraceId when tracing is enabled");
     }
 

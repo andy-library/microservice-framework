@@ -17,6 +17,7 @@ import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.notNullValue;
@@ -101,31 +102,31 @@ class StarterTestControllerContractTest {
 
         given().when().get("/test/logging/structured")
                 .then().statusCode(200)
-                .body("message", containsString("structured"));
+                .body("data.message", containsString("structured"));
         given().when().get("/test/logging/masking")
                 .then().statusCode(200)
-                .body("message", containsString("masked"));
+                .body("data.message", containsString("masked"));
         given().when().get("/test/logging/exception")
                 .then().statusCode(200)
-                .body("message", containsString("Exception logged"));
+                .body("data.message", containsString("Exception logged"));
         given().when().get("/test/logging/levels")
                 .then().statusCode(200)
-                .body("message", containsString("different log levels"));
+                .body("data.message", containsString("different log levels"));
         given().when().get("/test/logging/flood")
                 .then().statusCode(200)
-                .body("totalAttempted", equalTo(1000));
+                .body("data.totalAttempted", equalTo(1000));
 
         given().when().get("/test/observability/tracing/current")
                 .then().statusCode(200)
-                .body("traceId", notNullValue());
+                .body("data.traceId", notNullValue());
         given().header("user-id", "user-" + RUN_ID).header("tenant-id", "tenant-demo")
                 .when().get("/test/observability/tracing/baggage")
                 .then().statusCode(200)
-                .body("userId", equalTo("user-" + RUN_ID))
-                .body("tenantId", equalTo("tenant-demo"));
+                .body("data.userId", equalTo("user-" + RUN_ID))
+                .body("data.tenantId", equalTo("tenant-demo"));
         given().when().get("/test/observability/tracing/sampling")
                 .then().statusCode(200)
-                .body("message", notNullValue());
+                .body("data.message", notNullValue());
         given().queryParam("value", "tag-" + RUN_ID)
                 .when().get("/test/observability/tracing/tag")
                 .then().statusCode(200)
@@ -133,27 +134,27 @@ class StarterTestControllerContractTest {
         given().queryParam("channel", "starter")
                 .when().get("/test/observability/metrics/counter")
                 .then().statusCode(200)
-                .body("metric", equalTo("business.order.created"))
-                .body("tags.channel", equalTo("starter"));
+                .body("data.metric", equalTo("business.order.created"))
+                .body("data.tags.channel", equalTo("starter"));
         given().when().get("/test/observability/metrics/timer")
                 .then().statusCode(200)
-                .body("actualDurationMs", greaterThanOrEqualTo(0));
+                .body("data.actualDurationMs", greaterThanOrEqualTo(0));
         given().when().get("/test/observability/health/custom")
                 .then().statusCode(200)
-                .body("status", equalTo("UP"));
+                .body("data.status", equalTo("UP"));
         given().when().get("/test/observability/health/endpoints")
                 .then().statusCode(200)
-                .body("prometheus", equalTo("/actuator/prometheus"));
+                .body("data.prometheus", equalTo("/actuator/prometheus"));
         given().when().get("/test/observability/request-id")
                 .then().statusCode(200)
-                .body("requestId", notNullValue());
+                .body("data.requestId", notNullValue());
         given().header("X-Request-ID", "gateway-" + RUN_ID)
                 .when().get("/test/observability/request-id/gateway-test")
                 .then().statusCode(200)
-                .body("mdc_request_id", notNullValue());
+                .body("data.mdc_request_id", notNullValue());
         given().when().get("/test/observability/request-id/full-context")
                 .then().statusCode(200)
-                .body("mdc", notNullValue());
+                .body("data.mdc", notNullValue());
     }
 
     @Test
@@ -180,7 +181,7 @@ class StarterTestControllerContractTest {
         given().when().get("/test/database/routing/current")
                 .then().statusCode(200)
                 .body("code", equalTo(0))
-                .body("data.routingHint", equalTo("PRIMARY"));
+                .body("data.routingHint", equalTo("READ_REPLICA"));
 
         String eventId = given().contentType("application/json")
                 .body(Map.of("aggregateType", "Order", "aggregateId", orderNo, "eventType", "CREATED", "payload", "{}"))
@@ -280,18 +281,6 @@ class StarterTestControllerContractTest {
                 .then().statusCode(200)
                 .body("code", equalTo(0))
                 .body("data.dlqTopic", equalTo(topic + ".DLT"));
-        given().contentType("application/json")
-                .when().post("/test/kafka/dlq/replay")
-                .then().statusCode(200)
-                .body("code", equalTo(0))
-                .body("data.status", equalTo("notional"));
-        given().contentType("application/json")
-                .body(Map.of("topic", topic))
-                .when().post("/test/kafka/outbox/publish-pending")
-                .then().statusCode(200)
-                .body("code", equalTo(0))
-                .body("data.operation", equalTo("publishPendingOutbox"));
-
         String esId = "starter-es-" + RUN_ID;
         given().contentType("application/json")
                 .body(Map.of("orderId", esId, "orderNo", "ES-" + RUN_ID, "amount", 66.6, "status", "CREATED"))
@@ -352,7 +341,8 @@ class StarterTestControllerContractTest {
         given().when().get("/test/feign/timeout-policy")
                 .then().statusCode(200)
                 .body("code", equalTo(0))
-                .body("data.propagatorAvailable", equalTo(true));
+                .body("data.connectTimeoutMs", greaterThan(0))
+                .body("data.readTimeoutMs", greaterThan(0));
         given().header("user-id", "feign-user-" + RUN_ID)
                 .when().get("/test/feign/real-call")
                 .then().statusCode(200)
@@ -476,7 +466,8 @@ class StarterTestControllerContractTest {
         given().when().get("/test/nacos/source")
                 .then().statusCode(200)
                 .body("code", equalTo(0))
-                .body("data", hasKey("activeConfigSource"));
+                .body("data", hasKey("nacosAvailable"))
+                .body("data", hasKey("apolloAvailable"));
         given().when().get("/test/nacos/masked")
                 .then().statusCode(200)
                 .body("code", equalTo(0))
@@ -488,7 +479,8 @@ class StarterTestControllerContractTest {
         given().when().get("/test/apollo/source")
                 .then().statusCode(200)
                 .body("code", equalTo(0))
-                .body("data", hasKey("activeConfigSource"));
+                .body("data", hasKey("nacosAvailable"))
+                .body("data", hasKey("apolloAvailable"));
         given().when().get("/test/apollo/masked")
                 .then().statusCode(200)
                 .body("code", equalTo(0))

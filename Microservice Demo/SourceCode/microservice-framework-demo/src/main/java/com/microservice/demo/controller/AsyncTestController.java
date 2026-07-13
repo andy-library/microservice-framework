@@ -1,5 +1,7 @@
 package com.microservice.demo.controller;
 
+import com.microservice.framework.async.api.AsyncTaskExecutor;
+import com.microservice.framework.common.context.ThreadLocalContextAdapter;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -9,4 +11,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/test/async")
 public class AsyncTestController extends AsyncDemoController {
+    public AsyncTestController(AsyncTaskExecutor executor, ThreadLocalContextAdapter contextAdapter) {
+        super(executor, contextAdapter);
+    }
 }

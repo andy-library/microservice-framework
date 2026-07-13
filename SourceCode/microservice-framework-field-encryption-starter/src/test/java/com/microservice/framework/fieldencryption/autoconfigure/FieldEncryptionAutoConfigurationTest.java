@@ -166,4 +166,11 @@ class FieldEncryptionAutoConfigurationTest {
             assertThat(encryptor.isEncrypted(encrypted)).isTrue();
         });
     }
+
+    @Test
+    @DisplayName("prod 环境未提供密钥材料时应拒绝启动")
+    void prodWithoutExternalKeyMaterialMustFailClosed() {
+        contextRunner.withPropertyValues("spring.profiles.active=prod")
+                .run(context -> assertThat(context).hasFailed());
+    }
 }

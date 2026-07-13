@@ -4,6 +4,8 @@ import io.restassured.RestAssured;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
@@ -29,6 +31,7 @@ import static org.hamcrest.Matchers.*;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("full-embedded")
 @DisplayName("全量 Starter 能力集成测试")
+@Execution(ExecutionMode.SAME_THREAD)
 class FullStarterCapabilityIntegrationTest {
 
     @LocalServerPort
@@ -55,7 +58,8 @@ class FullStarterCapabilityIntegrationTest {
                 .then().statusCode(200)
                 .body("code", equalTo(0))
                 .body("data.id", notNullValue())
-                .body("data.type", equalTo("snowflake"));
+                .body("data.type", equalTo("snowflake"))
+                .body("data.source", equalTo("IdGenerator"));
         }
 
         @Test
@@ -66,7 +70,8 @@ class FullStarterCapabilityIntegrationTest {
                 .then().statusCode(200)
                 .body("code", equalTo(0))
                 .body("data.time", notNullValue())
-                .body("data.zoneId", equalTo("Asia/Shanghai"));
+                .body("data.zoneId", equalTo("Asia/Shanghai"))
+                .body("data.source", equalTo("FrameworkClock"));
         }
     }
 
@@ -88,7 +93,9 @@ class FullStarterCapabilityIntegrationTest {
                 .then().statusCode(200)
                 .body("code", equalTo(0))
                 .body("data.roundtrip", notNullValue())
-                .body("data.match", equalTo(true));
+                .body("data.match", equalTo(true))
+                .body("data.codec", notNullValue())
+                .body("data.serialized", containsString("\"name\""));
         }
     }
 
@@ -165,7 +172,7 @@ class FullStarterCapabilityIntegrationTest {
             given()
                 .when().get("/api/demo/logging/structured")
                 .then().statusCode(200)
-                .body("message", containsString("structured"));
+                .body("data.message", containsString("structured"));
         }
     }
 
@@ -183,7 +190,7 @@ class FullStarterCapabilityIntegrationTest {
             given()
                 .when().get("/api/demo/tracing/current")
                 .then().statusCode(200)
-                .body("traceId", notNullValue());
+                .body("data.traceId", notNullValue());
         }
     }
 
@@ -321,7 +328,7 @@ class FullStarterCapabilityIntegrationTest {
                 .then().statusCode(200)
                 .body("code", equalTo(0))
                 .body("data.headerCount", greaterThan(0))
-                .body("data.propagationHeaders", notNullValue());
+                .body("data.propagateKeys", notNullValue());
         }
     }
 
@@ -406,7 +413,14 @@ class FullStarterCapabilityIntegrationTest {
                 .then().statusCode(200)
                 .body("code", equalTo(0))
                 .body("data.saved", equalTo(true))
-                .body("data.eventType", equalTo("ADMIN_ACTION"));
+                .body("data.eventType", equalTo("ADMIN_ACTION"))
+                .body("data.checksumVerified", equalTo(true));
+
+            given()
+                .when().get("/demo/audit/{entryId}", "missing-audit-entry")
+                .then().statusCode(200)
+                .body("code", equalTo(0))
+                .body("data.found", equalTo(false));
         }
     }
 
@@ -428,7 +442,9 @@ class FullStarterCapabilityIntegrationTest {
                 .then().statusCode(200)
                 .body("code", equalTo(0))
                 .body("data.roundtripMatch", equalTo(true))
-                .body("data.verificationPassed", equalTo(true));
+                .body("data.verificationPassed", equalTo(true))
+                .body("data.isEncryptedAfterEncrypt", equalTo(true))
+                .body("data.ciphertext", not(equalTo("c2Vuc2l0aXZlLWRhdGEtdGVzdA==")));
         }
     }
 
@@ -458,7 +474,10 @@ class FullStarterCapabilityIntegrationTest {
                 .when().get("/demo/storage/object/test-obj-key")
                 .then().statusCode(200)
                 .body("code", equalTo(0))
-                .body("data.operation", equalTo("download"));
+                .body("data.operation", equalTo("download"))
+                .body("data.found", equalTo(true))
+                .body("data.content", equalTo("test-content-value"))
+                .body("data.implementation", notNullValue());
         }
     }
 
@@ -480,7 +499,8 @@ class FullStarterCapabilityIntegrationTest {
                 .then().statusCode(200)
                 .body("code", equalTo(0))
                 .body("data.engineAvailable", equalTo(true))
-                .body("data.memberLevel", notNullValue());
+                .body("data.memberLevel", equalTo("DIAMOND"))
+                .body("data.firedRules", notNullValue());
         }
     }
 

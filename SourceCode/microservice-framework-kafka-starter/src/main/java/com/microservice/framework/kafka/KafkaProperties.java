@@ -174,6 +174,10 @@ public class KafkaProperties {
         @Min(100)
         private Integer autoCommitIntervalMs = 1000;
 
+        /** Maximum time for an explicit single-record poll. */
+        @Min(100)
+        private Long pollTimeoutMs = 10000L;
+
         // Getters and Setters
 
         public Boolean getAutoCommit() {
@@ -198,6 +202,14 @@ public class KafkaProperties {
 
         public void setAutoCommitIntervalMs(Integer autoCommitIntervalMs) {
             this.autoCommitIntervalMs = autoCommitIntervalMs;
+        }
+
+        public Long getPollTimeoutMs() {
+            return pollTimeoutMs;
+        }
+
+        public void setPollTimeoutMs(Long pollTimeoutMs) {
+            this.pollTimeoutMs = pollTimeoutMs;
         }
     }
 
@@ -266,6 +278,14 @@ public class KafkaProperties {
          */
         private Boolean enabled = true;
 
+        /**
+         * 默认本地幂等缓存最大记录数。
+         * <p>
+         * 仅用于非生产环境的默认实现，生产环境应提供 Redis 或数据库等分布式实现。
+         */
+        @Min(1)
+        private Integer maxEntries = 10000;
+
         // Getters and Setters
 
         public Boolean getEnabled() {
@@ -274,6 +294,14 @@ public class KafkaProperties {
 
         public void setEnabled(Boolean enabled) {
             this.enabled = enabled;
+        }
+
+        public Integer getMaxEntries() {
+            return maxEntries;
+        }
+
+        public void setMaxEntries(Integer maxEntries) {
+            this.maxEntries = maxEntries;
         }
     }
 }

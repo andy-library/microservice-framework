@@ -8,7 +8,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
+import org.springframework.boot.autoconfigure.jdbc.DataSourceTransactionManagerAutoConfiguration;
 import org.springframework.boot.autoconfigure.jdbc.JdbcTemplateAutoConfiguration;
+import org.springframework.boot.autoconfigure.transaction.TransactionAutoConfiguration;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.jdbc.core.JdbcTemplate;
 
@@ -22,7 +24,9 @@ class JdbcAuditRecorderTest {
     private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
             .withConfiguration(AutoConfigurations.of(
                     DataSourceAutoConfiguration.class,
+                    DataSourceTransactionManagerAutoConfiguration.class,
                     JdbcTemplateAutoConfiguration.class,
+                    TransactionAutoConfiguration.class,
                     AuditAutoConfiguration.class))
             .withPropertyValues(
                     "spring.datasource.url=jdbc:h2:mem:audit-test;MODE=MySQL;DB_CLOSE_DELAY=-1",
@@ -49,7 +53,14 @@ class JdbcAuditRecorderTest {
                     "SHA-256");
             recorder.record(entry);
 
-            assertThat(recorder.getEntry("audit-jdbc-1")).contains(entry);
+            assertThat(recorder.getEntry("audit-jdbc-1"))
+                    .isPresent()
+                    .get()
+                    .satisfies(restored -> {
+                        assertThat(restored.getId()).isEqualTo(entry.getId());
+                        assertThat(restored.getChecksum()).isNotEqualTo(entry.getChecksum());
+                        assertThat(restored.verifyChecksum("HmacSHA256", "dev-test-audit-key".getBytes())).isTrue();
+                    });
             assertThat(recorder.query(new AuditQuery(null, null, "admin-001", "ADMIN_ACTION", null, null))
                     .getItems()).hasSize(1);
         });
@@ -105,7 +116,7 @@ class JdbcAuditRecorderTest {
                     .isPresent()
                     .get()
                     .satisfies(restored -> {
-                        assertThat(restored.verifyChecksum("SHA-256")).isTrue();
+                        assertThat(restored.verifyChecksum("HmacSHA256", "dev-test-audit-key".getBytes())).isTrue();
                         assertThat(restored.getTimestamp()).isEqualTo(Instant.parse("2026-06-18T10:00:00.123456Z"));
                     });
         });
@@ -147,7 +158,28 @@ class JdbcAuditRecorderTest {
     @Test
     @DisplayName("生产环境禁止自动创建审计表")
     void productionShouldRejectAutomaticAuditTableCreation() {
-        contextRunner.withPropertyValues("spring.profiles.active=prod")
+        contextRunner.withPropertyValues(
+                        "spring.profiles.active=prod",
+                        "framework.audit.security.tamper-evidence-key=prod-secret")
                 .run(context -> assertThat(context).hasFailed());
+    }
+
+    @Test
+    @DisplayName("JDBC batch write failure should roll back all entries")
+    void jdbcBatchWriteFailureShouldRollbackAllEntries() {
+        contextRunner.run(context -> {
+            assertThat(context).hasNotFailed();
+            AuditRecorder recorder = context.getBean(AuditRecorder.class);
+
+            AuditEntry first = new AuditEntry("audit-batch-first", "BATCH", "admin", "target", "CREATE", null,
+                    Instant.parse("2026-06-18T12:00:00Z"), "SHA-256");
+            AuditEntry duplicate = new AuditEntry("audit-batch-first", "BATCH", "admin", "target", "DUPLICATE", null,
+                    Instant.parse("2026-06-18T12:01:00Z"), "SHA-256");
+
+            assertThatThrownBy(() -> recorder.recordBatch(java.util.List.of(first, duplicate)))
+                    .isInstanceOf(RuntimeException.class);
+
+            assertThat(recorder.getEntry("audit-batch-first")).isEmpty();
+        });
     }
 }

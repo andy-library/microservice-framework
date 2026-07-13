@@ -7,6 +7,7 @@ import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
+import java.util.ArrayList;
 import java.util.regex.Matcher;
 
 /**
@@ -58,6 +59,7 @@ public class PatternMaskingConverter extends ClassicConverter {
      * </ul>
      */
     private volatile Set<MaskingRule> enabledRules = EnumSet.allOf(MaskingRule.class);
+    private volatile List<MaskingJsonGeneratorDecorator.CustomRule> customRules = List.of();
 
     /**
      * 将日志消息进行脱敏处理
@@ -92,6 +94,9 @@ public class PatternMaskingConverter extends ClassicConverter {
         String maskedMessage = message;
         for (MaskingRule rule : enabledRules) {
             maskedMessage = applyMaskingRule(maskedMessage, rule);
+        }
+        for (MaskingJsonGeneratorDecorator.CustomRule rule : customRules) {
+            maskedMessage = rule.mask(maskedMessage);
         }
 
         return maskedMessage;
@@ -171,5 +176,9 @@ public class PatternMaskingConverter extends ClassicConverter {
      */
     public Set<MaskingRule> getEnabledRules() {
         return Collections.unmodifiableSet(enabledRules);
+    }
+
+    public void setCustomRules(List<MaskingJsonGeneratorDecorator.CustomRule> customRules) {
+        this.customRules = customRules == null ? List.of() : List.copyOf(new ArrayList<>(customRules));
     }
 }

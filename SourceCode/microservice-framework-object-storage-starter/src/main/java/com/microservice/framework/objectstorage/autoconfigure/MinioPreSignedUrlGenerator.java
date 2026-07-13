@@ -3,27 +3,27 @@ package com.microservice.framework.objectstorage.autoconfigure;
 import com.microservice.framework.objectstorage.ObjectStorageProperties;
 import com.microservice.framework.objectstorage.api.ObjectStorageException;
 import com.microservice.framework.objectstorage.api.PreSignedUrlGenerator;
+import io.minio.GetPresignedObjectUrlArgs;
+import io.minio.MinioClient;
+import io.minio.http.Method;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Objects;
 
 /**
- * MinIO 预签名 URL 生成器的占位实现
- * <p>
- * 当 MinIO SDK 存在于类路径时，此实现提供基于 MinIO 的预签名 URL 生成。
- * <p>
- * 注意：此实现为框架内置占位实现，实际 SDK 调用需在运行时通过 MinioClient 完成。
- * 由于 MinIO SDK 为可选依赖，方法体内抛出 {@link ObjectStorageException#OS_INTERNAL_ERROR}
- * 以标识此类需要配合 MinIO SDK 使用。
+ * MinIO 预签名 URL 生成器实现。
  *
  * @author Andy Yang
  */
 class MinioPreSignedUrlGenerator implements PreSignedUrlGenerator {
 
+    private final MinioClient minioClient;
     private final ObjectStorageProperties properties;
 
-    MinioPreSignedUrlGenerator(ObjectStorageProperties properties) {
-        this.properties = properties;
+    MinioPreSignedUrlGenerator(MinioClient minioClient, ObjectStorageProperties properties) {
+        this.minioClient = Objects.requireNonNull(minioClient, "minioClient must not be null");
+        this.properties = Objects.requireNonNull(properties, "properties must not be null");
     }
 
     private String defaultBucket() {
@@ -32,8 +32,7 @@ class MinioPreSignedUrlGenerator implements PreSignedUrlGenerator {
 
     @Override
     public String generateUploadUrl(String bucket, String key) {
-        throw new ObjectStorageException(ObjectStorageException.OS_INTERNAL_ERROR,
-                "MinioPreSignedUrlGenerator requires MinIO SDK runtime");
+        return generateUrl(bucket, key, Duration.ofSeconds(properties.getPresign().getDefaultExpiry()), Method.PUT);
     }
 
     @Override
@@ -43,8 +42,7 @@ class MinioPreSignedUrlGenerator implements PreSignedUrlGenerator {
 
     @Override
     public String generateDownloadUrl(String bucket, String key) {
-        throw new ObjectStorageException(ObjectStorageException.OS_INTERNAL_ERROR,
-                "MinioPreSignedUrlGenerator requires MinIO SDK runtime");
+        return generateUrl(bucket, key, Duration.ofSeconds(properties.getPresign().getDefaultExpiry()), Method.GET);
     }
 
     @Override
@@ -54,8 +52,7 @@ class MinioPreSignedUrlGenerator implements PreSignedUrlGenerator {
 
     @Override
     public String generateUrl(String bucket, String key, Duration expiry) {
-        throw new ObjectStorageException(ObjectStorageException.OS_INTERNAL_ERROR,
-                "MinioPreSignedUrlGenerator requires MinIO SDK runtime");
+        return generateUrl(bucket, key, expiry, Method.GET);
     }
 
     @Override
@@ -65,12 +62,35 @@ class MinioPreSignedUrlGenerator implements PreSignedUrlGenerator {
 
     @Override
     public String generateUrl(String bucket, String key, Instant expiration) {
-        throw new ObjectStorageException(ObjectStorageException.OS_INTERNAL_ERROR,
-                "MinioPreSignedUrlGenerator requires MinIO SDK runtime");
+        return generateUrl(bucket, key, ObjectStorageSupport.expiryUntil(expiration));
     }
 
     @Override
     public String getImplementationName() {
         return "minio";
+    }
+
+    private String generateUrl(String bucket, String key, Duration expiry, Method method) {
+        String resolvedBucket = ObjectStorageSupport.requireText(bucket, "bucket");
+        String resolvedKey = ObjectStorageSupport.requireText(key, "key");
+        Duration resolvedExpiry = ObjectStorageSupport.requirePositiveExpiry(expiry);
+        try {
+            return minioClient.getPresignedObjectUrl(GetPresignedObjectUrlArgs.builder()
+                    .bucket(resolvedBucket)
+                    .object(resolvedKey)
+                    .method(method)
+                    .expiry(Math.toIntExact(resolvedExpiry.toSeconds()))
+                    .build());
+        } catch (Exception ex) {
+            throw translate("presign", ex);
+        }
+    }
+
+    private ObjectStorageException translate(String operation, Exception ex) {
+        if (ex instanceof ObjectStorageException objectStorageException) {
+            return objectStorageException;
+        }
+        return new ObjectStorageException(ObjectStorageException.OS_PRESIGN_FAILED,
+                ObjectStorageSupport.safeMessage("MinIO", operation), ex);
     }
 }

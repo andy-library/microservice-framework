@@ -27,7 +27,8 @@ class ApolloAutoConfigurationTest {
             .withConfiguration(AutoConfigurations.of(
                     ApolloConfigAutoConfiguration.class,
                     KubernetesConfigAutoConfiguration.class,
-                    ConfigGovernanceAutoConfiguration.class));
+                    ConfigGovernanceAutoConfiguration.class))
+            .withPropertyValues("framework.apollo.enabled=true");
 
     @Nested
     @DisplayName("默认配置")

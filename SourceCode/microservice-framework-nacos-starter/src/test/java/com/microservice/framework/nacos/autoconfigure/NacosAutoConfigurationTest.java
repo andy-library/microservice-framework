@@ -27,11 +27,19 @@ class NacosAutoConfigurationTest {
             .withConfiguration(AutoConfigurations.of(
                     NacosConfigAutoConfiguration.class,
                     KubernetesConfigAutoConfiguration.class,
-                    ConfigGovernanceAutoConfiguration.class));
+                    ConfigGovernanceAutoConfiguration.class,
+                    ConfigCenterMutualExclusionAutoConfiguration.class))
+            .withPropertyValues("framework.nacos.enabled=true");
 
     @Nested
     @DisplayName("默认配置")
     class DefaultConfigurationTests {
+
+        @Test
+        @DisplayName("仅引入 Nacos Starter 时不应被判定为配置中心冲突")
+        void nacosOnlyShouldNotBeTreatedAsConfigCenterConflict() {
+            contextRunner.run(context -> assertThat(context).hasNotFailed());
+        }
 
         @Test
         @DisplayName("默认配置应加载配置治理相关 Bean")

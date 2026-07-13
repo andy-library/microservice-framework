@@ -50,6 +50,9 @@ public class JacksonJsonCodec implements JsonCodec {
         // 基于 Spring Boot 的 ObjectMapper 创建副本，避免修改共享实例
         ObjectMapper customizedMapper = baseMapper.copy();
 
+        // Default typing must never be inherited from a shared mapper.
+        customizedMapper.deactivateDefaultTyping();
+
         // 安全配置：根据配置决定是否在遇到未知属性时失败
         customizedMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES,
                 properties.getFailOnUnknownProperties());
@@ -84,6 +87,9 @@ public class JacksonJsonCodec implements JsonCodec {
                 customizer.customize(customizedMapper);
             }
         }
+
+        // Customizers may add modules and format settings, but cannot weaken this baseline.
+        customizedMapper.deactivateDefaultTyping();
 
         this.objectMapper = customizedMapper;
         this.properties = properties;
@@ -221,10 +227,10 @@ public class JacksonJsonCodec implements JsonCodec {
     /**
      * 返回底层 ObjectMapper 实例（仅供高级场景使用）
      *
-     * @return 已配置的 ObjectMapper
+     * @return 已配置 ObjectMapper 的独立副本
      */
     public ObjectMapper getObjectMapper() {
-        return objectMapper;
+        return objectMapper.copy();
     }
 
     /**

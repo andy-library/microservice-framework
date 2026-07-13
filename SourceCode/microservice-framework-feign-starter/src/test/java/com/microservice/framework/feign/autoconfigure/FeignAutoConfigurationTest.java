@@ -5,14 +5,23 @@ import com.microservice.framework.common.autoconfigure.CommonIdAutoConfiguration
 import com.microservice.framework.common.autoconfigure.CommonTimeAutoConfiguration;
 import com.microservice.framework.feign.api.FeignContextPropagator;
 import com.microservice.framework.feign.api.ServiceIdentityProvider;
+import feign.RequestTemplate;
 import feign.RequestInterceptor;
+import feign.Request;
+import feign.RetryableException;
+import feign.Retryer;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
+import java.nio.charset.Charset;
+import java.util.Collection;
+import java.util.Map;
+
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Feign 自动配置测试
@@ -126,6 +135,93 @@ class FeignAutoConfigurationTest {
     class PropertyBinding {
 
         @Test
+        @DisplayName("连接超时属性必须配置到 Feign Request.Options")
+        void connectionTimeoutPropertiesShouldConfigureFeignOptions() {
+            contextRunner.withPropertyValues(
+                            "framework.feign.connection.connect-timeout=321",
+                            "framework.feign.connection.read-timeout=654")
+                    .run(context -> {
+                        assertThat(context).hasNotFailed();
+                        Request.Options options = context.getBean(Request.Options.class);
+                        assertThat(options.connectTimeoutMillis()).isEqualTo(321);
+                        assertThat(options.readTimeoutMillis()).isEqualTo(654);
+                    });
+        }
+
+        @Test
+        @DisplayName("重试属性必须配置为 Feign Retryer")
+        void retryPropertiesShouldConfigureFeignRetryer() {
+            contextRunner.withPropertyValues(
+                            "framework.feign.retry.enabled=true",
+                            "framework.feign.retry.max-retries=2",
+                            "framework.feign.retry.retry-interval=17")
+                    .run(context -> {
+                        assertThat(context).hasNotFailed();
+                        assertThat(context.getBean(Retryer.class))
+                                .isInstanceOf(FeignAutoConfiguration.BudgetAwareRetryer.class);
+                    });
+        }
+
+        @Test
+        @DisplayName("禁用重试时必须安装 NEVER_RETRY")
+        void disabledRetryShouldInstallNeverRetry() {
+            contextRunner.withPropertyValues("framework.feign.retry.enabled=false")
+                    .run(context -> {
+                        assertThat(context).hasNotFailed();
+                        assertThat(context.getBean(Retryer.class)).isSameAs(Retryer.NEVER_RETRY);
+                    });
+        }
+
+        @Test
+        @DisplayName("读取超时不得超过总请求预算")
+        void readTimeoutShouldNotExceedTotalRequestBudget() {
+            contextRunner.withPropertyValues(
+                            "framework.feign.connection.timeout=250",
+                            "framework.feign.connection.connect-timeout=100",
+                            "framework.feign.connection.read-timeout=1000")
+                    .run(context -> {
+                        assertThat(context).hasNotFailed();
+                        Request.Options options = context.getBean(Request.Options.class);
+                        assertThat(options.readTimeoutMillis()).isEqualTo(250);
+                    });
+        }
+
+        @Test
+        @DisplayName("重试器必须拒绝非幂等 HTTP 方法")
+        void retryerShouldRejectNonIdempotentMethods() {
+            contextRunner.withPropertyValues(
+                            "framework.feign.retry.enabled=true",
+                            "framework.feign.retry.max-retries=3",
+                            "framework.feign.retry.retry-interval=0")
+                    .run(context -> {
+                        assertThat(context).hasNotFailed();
+                        Retryer retryer = context.getBean(Retryer.class).clone();
+                        RetryableException postFailure = retryable(Request.HttpMethod.POST);
+
+                        assertThatThrownBy(() -> retryer.continueOrPropagate(postFailure))
+                                .isSameAs(postFailure);
+                    });
+        }
+
+        @Test
+        @DisplayName("重试器必须用总请求预算限制后续重试")
+        void retryerShouldEnforceTotalRequestBudget() {
+            contextRunner.withPropertyValues(
+                            "framework.feign.connection.timeout=1",
+                            "framework.feign.retry.enabled=true",
+                            "framework.feign.retry.max-retries=3",
+                            "framework.feign.retry.retry-interval=50")
+                    .run(context -> {
+                        assertThat(context).hasNotFailed();
+                        Retryer retryer = context.getBean(Retryer.class).clone();
+                        RetryableException getFailure = retryable(Request.HttpMethod.GET);
+
+                        assertThatThrownBy(() -> retryer.continueOrPropagate(getFailure))
+                                .isSameAs(getFailure);
+                    });
+        }
+
+        @Test
         @DisplayName("配置 serviceName 应注入到 DefaultServiceIdentityProvider")
         void configuredServiceNameShouldBeAppliedToProvider() {
             contextRunner.withPropertyValues("framework.feign.service-identity.service-name=order-service")
@@ -144,6 +240,78 @@ class FeignAutoConfigurationTest {
                 ServiceIdentityProvider provider = context.getBean(ServiceIdentityProvider.class);
                 assertThat(provider.getServiceId()).isEqualTo("unknown");
             });
+        }
+
+        @Test
+        @DisplayName("默认服务身份提供者不得返回空 Token 凭据")
+        void defaultServiceIdentityProviderShouldNotExposeEmptyTokenCredential() {
+            contextRunner.run(context -> {
+                assertThat(context).hasNotFailed();
+                ServiceIdentityProvider provider = context.getBean(ServiceIdentityProvider.class);
+                assertThat(provider.getServiceToken()).isNull();
+            });
+        }
+
+        @Test
+        @DisplayName("拦截器不得注入空白服务身份凭据头")
+        void interceptorShouldNotEmitBlankServiceIdentityCredentials() {
+            ServiceIdentityProvider blankProvider = new ServiceIdentityProvider() {
+                @Override
+                public String getServiceId() {
+                    return " ";
+                }
+
+                @Override
+                public String getServiceToken() {
+                    return " ";
+                }
+
+                @Override
+                public Map<String, String> getHeaders() {
+                    return Map.of("X-Service-Token", " ", "X-Custom-Credential", "");
+                }
+            };
+
+            contextRunner.withBean(ServiceIdentityProvider.class, () -> blankProvider)
+                    .run(context -> {
+                        assertThat(context).hasNotFailed();
+                        RequestInterceptor interceptor = context.getBean(RequestInterceptor.class);
+                        RequestTemplate template = new RequestTemplate();
+
+                        interceptor.apply(template);
+
+                        assertThat(template.headers())
+                                .doesNotContainKey("X-Service-Token")
+                                .doesNotContainKey("X-Custom-Credential")
+                                .doesNotContainKey("serviceIdentity");
+                    });
+        }
+    }
+
+    @Nested
+    @DisplayName("配置声明无法兑现时快速失败")
+    class UnsupportedConfiguredClaims {
+
+        @Test
+        @DisplayName("启用熔断但未提供实现时必须启动失败")
+        void enabledCircuitBreakerShouldFailFastWithoutImplementation() {
+            contextRunner.withPropertyValues("framework.feign.circuit-breaker.enabled=true")
+                    .run(context -> {
+                        assertThat(context).hasFailed();
+                        assertThat(context.getStartupFailure())
+                                .hasMessageContaining("framework.feign.circuit-breaker.enabled=true");
+                    });
+        }
+
+        @Test
+        @DisplayName("启用隔离但未提供实现时必须启动失败")
+        void enabledIsolationShouldFailFastWithoutImplementation() {
+            contextRunner.withPropertyValues("framework.feign.isolation.enabled=true")
+                    .run(context -> {
+                        assertThat(context).hasFailed();
+                        assertThat(context.getStartupFailure())
+                                .hasMessageContaining("framework.feign.isolation.enabled=true");
+                    });
         }
     }
 
@@ -211,5 +379,11 @@ class FeignAutoConfigurationTest {
                                 .isSameAs(customProvider);
                     });
         }
+    }
+
+    private static RetryableException retryable(Request.HttpMethod method) {
+        Request request = Request.create(method, "http://downstream.test",
+                Map.<String, Collection<String>>of(), (byte[]) null, (Charset) null);
+        return new RetryableException(503, "unavailable", method, (Long) null, request);
     }
 }

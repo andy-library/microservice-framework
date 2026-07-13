@@ -2,10 +2,15 @@ package com.microservice.framework.observability.autoconfigure.tracing;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.env.EnvironmentPostProcessor;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+import org.springframework.core.env.MapPropertySource;
+import org.springframework.core.env.StandardEnvironment;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.fail;
 
 /**
  * BaggageAutoConfiguration 单元测试
@@ -54,5 +59,34 @@ class BaggageAutoConfigurationTest {
             // 空配置应使用默认值
             assertThat(context).hasNotFailed();
         });
+    }
+
+    @Test
+    @DisplayName("framework baggage keys 应桥接到 Boot tracing 传播配置")
+    void frameworkBaggageKeysShouldBridgeToBootTracingPropagationProperties() throws Exception {
+        StandardEnvironment environment = new StandardEnvironment();
+        environment.getPropertySources().addFirst(new MapPropertySource("test", java.util.Map.of(
+                "framework.observability.tracing.baggage-keys[0]", "tenantId",
+                "framework.observability.tracing.baggage-keys[1]", "requestSource")));
+
+        EnvironmentPostProcessor processor = baggagePropagationEnvironmentPostProcessor();
+        processor.postProcessEnvironment(environment, new SpringApplication());
+
+        assertThat(environment.getProperty("management.tracing.baggage.remote-fields"))
+                .isEqualTo("tenantId,requestSource");
+        assertThat(environment.getProperty("management.tracing.baggage.correlation.fields"))
+                .isEqualTo("tenantId,requestSource");
+    }
+
+    private EnvironmentPostProcessor baggagePropagationEnvironmentPostProcessor() {
+        try {
+            return (EnvironmentPostProcessor) Class
+                    .forName("com.microservice.framework.observability.autoconfigure.tracing.BaggagePropagationEnvironmentPostProcessor")
+                    .getDeclaredConstructor()
+                    .newInstance();
+        } catch (ReflectiveOperationException ex) {
+            fail("Baggage propagation environment bridge is missing", ex);
+            return null;
+        }
     }
 }

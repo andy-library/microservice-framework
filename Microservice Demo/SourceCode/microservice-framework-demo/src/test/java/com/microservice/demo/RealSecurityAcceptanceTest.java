@@ -15,12 +15,6 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.test.context.ActiveProfiles;
 
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
-import java.nio.charset.StandardCharsets;
-import java.time.Instant;
-import java.util.HexFormat;
-import java.util.UUID;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.equalTo;
@@ -107,38 +101,24 @@ class RealSecurityAcceptanceTest {
     void internalEndpointRejectsInvalidServiceSignature() {
         given()
                 .header("X-Service-Id", "order-service")
-                .header("X-Service-Timestamp", String.valueOf(Instant.now().getEpochSecond()))
-                .header("X-Service-Nonce", UUID.randomUUID().toString())
-                .header("X-Service-Signature", "bad-signature")
+                .header("X-Service-Token", "bad-token")
                 .when().get("/demo/security/internal")
                 .then().statusCode(401);
     }
 
     @Test
     @DisplayName("内部服务接口签名正确时允许访问")
-    void internalEndpointAllowsSignedServiceCall() throws Exception {
+    void internalEndpointAllowsSignedServiceCall() {
         String serviceId = "order-service";
-        String timestamp = String.valueOf(Instant.now().getEpochSecond());
-        String nonce = UUID.randomUUID().toString();
-        String signature = sign(serviceId, timestamp, nonce, "GET", "/demo/security/internal");
 
         given()
                 .header("X-Service-Id", serviceId)
-                .header("X-Service-Timestamp", timestamp)
-                .header("X-Service-Nonce", nonce)
-                .header("X-Service-Signature", signature)
+                .header("X-Service-Token", SERVICE_SECRET)
                 .when().get("/demo/security/internal")
                 .then().statusCode(200)
                 .body("code", equalTo(0))
                 .body("data.access", equalTo("internal"))
                 .body("data.serviceId", equalTo(serviceId));
-    }
-
-    private String sign(String serviceId, String timestamp, String nonce, String method, String path) throws Exception {
-        String payload = serviceId + "\n" + timestamp + "\n" + nonce + "\n" + method + "\n" + path;
-        Mac mac = Mac.getInstance("HmacSHA256");
-        mac.init(new SecretKeySpec(SERVICE_SECRET.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
-        return HexFormat.of().formatHex(mac.doFinal(payload.getBytes(StandardCharsets.UTF_8)));
     }
 
     @TestConfiguration

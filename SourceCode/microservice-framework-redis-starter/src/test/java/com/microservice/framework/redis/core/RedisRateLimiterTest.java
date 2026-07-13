@@ -13,7 +13,9 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -64,14 +66,21 @@ class RedisRateLimiterTest {
         }
 
         @Test
-        @DisplayName("tryAcquire(key, permits) 使用默认限流参数")
-        void tryAcquireWithPermitsUsesDefaults() {
+        @DisplayName("tryAcquire(key, permits) 应原子地消耗请求的 permits，并使用默认窗口上限")
+        void tryAcquireWithPermitsConsumesRequestedPermitsAtomically() {
             when(redisTemplate.execute(any(RedisScript.class), any(List.class), any(Object[].class)))
-                    .thenReturn(5L);
+                    .thenReturn(1L);
 
             boolean result = rateLimiter.tryAcquire("api-login", 5);
 
             assertThat(result).isTrue();
+            org.mockito.ArgumentCaptor<RedisScript<Long>> script = org.mockito.ArgumentCaptor.forClass(RedisScript.class);
+            verify(redisTemplate).execute(script.capture(), eq(java.util.List.of("framework:rate-limit:api-login")),
+                    eq("5"), eq(String.valueOf(rateLimitProperties.getDefaultPermits())),
+                    eq(String.valueOf(rateLimitProperties.getDefaultPeriod())));
+            assertThat(script.getValue().getScriptAsString())
+                    .contains("incrby")
+                    .contains("current + requested > limit");
         }
 
         @Test

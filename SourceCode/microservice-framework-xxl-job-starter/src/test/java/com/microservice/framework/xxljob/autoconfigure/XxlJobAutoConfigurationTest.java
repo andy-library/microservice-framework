@@ -2,10 +2,15 @@ package com.microservice.framework.xxljob.autoconfigure;
 
 import com.microservice.framework.xxljob.XxlJobProperties;
 import com.microservice.framework.xxljob.api.IdempotentJobHandler;
+import com.microservice.framework.xxljob.api.JobExecutionContext;
+import com.microservice.framework.xxljob.api.JobHandler;
+import com.microservice.framework.xxljob.api.JobResult;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+
+import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -23,24 +28,31 @@ import static org.assertj.core.api.Assertions.assertThat;
 class XxlJobAutoConfigurationTest {
 
     private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
-            .withConfiguration(AutoConfigurations.of(
-                    XxlJobAutoConfiguration.class));
+            .withConfiguration(AutoConfigurations.of(XxlJobAutoConfiguration.class))
+            .withPropertyValues(
+                    "framework.xxl-job.admin.addresses=http://127.0.0.1:8080/xxl-job-admin",
+                    "framework.xxl-job.admin.app-name=test-app",
+                    "framework.xxl-job.executor.app-name=test-executor");
 
     @Test
     @DisplayName("默认配置应激活 IdempotentJobHandler")
     void defaultConfigurationShouldActivateIdempotentJobHandler() {
-        contextRunner.run(context -> {
+        contextRunner.withBean(JobHandler.class, CountingJobHandler::new).run(context -> {
             assertThat(context).hasNotFailed();
             assertThat(context).hasBean("idempotentJobHandler");
             IdempotentJobHandler handler = context.getBean(IdempotentJobHandler.class);
             assertThat(handler).isNotNull();
+            assertThat(handler.execute(JobExecutionContext.of(1, "executor", "param"))).isEqualTo(JobResult.success("handled"));
+            assertThat(context.getBean(CountingJobHandler.class).invocationCount).isEqualTo(1);
         });
     }
 
     @Test
     @DisplayName("禁用 XXL-JOB Starter 后所有 Bean 不应存在")
     void disablingXxlJobShouldRemoveAllBeans() {
-        contextRunner.withPropertyValues("framework.xxl-job.enabled=false")
+        new ApplicationContextRunner()
+                .withConfiguration(AutoConfigurations.of(XxlJobAutoConfiguration.class))
+                .withPropertyValues("framework.xxl-job.enabled=false")
                 .run(context -> {
                     assertThat(context).hasNotFailed();
                     assertThat(context).doesNotHaveBean(IdempotentJobHandler.class);
@@ -57,6 +69,68 @@ class XxlJobAutoConfigurationTest {
                     assertThat(context).doesNotHaveBean(IdempotentJobHandler.class);
                     assertThat(context.getBean(XxlJobProperties.class)).isNotNull();
                 });
+    }
+
+    @Test
+    @DisplayName("启用 XXL-JOB 但缺少必填配置时应使上下文启动失败")
+    void enabledXxlJobShouldValidateRequiredConfiguration() {
+        new ApplicationContextRunner()
+                .withConfiguration(AutoConfigurations.of(XxlJobAutoConfiguration.class))
+                .withBean(JobHandler.class, CountingJobHandler::new)
+                .run(context -> assertThat(context).hasFailed());
+    }
+
+    @Test
+    @DisplayName("任务失败后不应标记幂等键，从而允许重试")
+    void failedJobShouldNotBeMarkedProcessed() {
+        contextRunner.withBean(FailingJobHandler.class, FailingJobHandler::new).run(context -> {
+            IdempotentJobHandler handler = context.getBean(IdempotentJobHandler.class);
+            JobExecutionContext executionContext = JobExecutionContext.of(1001, "executor-1", "sync");
+
+            assertThat(handler.execute(executionContext).isFail()).isTrue();
+            assertThat(handler.execute(executionContext).isFail()).isTrue();
+            assertThat(context.getBean(FailingJobHandler.class).invocationCount).isEqualTo(2);
+            assertThat(handler.isDuplicate(executionContext)).isFalse();
+        });
+    }
+
+    @Test
+    @DisplayName("幂等键应包含参数、分片和触发身份")
+    void idempotencyKeyShouldIncludeParamShardAndTriggerIdentity() {
+        contextRunner.withBean(CountingJobHandler.class, CountingJobHandler::new).run(context -> {
+            IdempotentJobHandler handler = context.getBean(IdempotentJobHandler.class);
+            Instant triggerTime = Instant.parse("2026-07-11T00:00:00Z");
+
+            handler.execute(JobExecutionContext.of(1001, "executor-1", "sync-a", 0, 2, triggerTime));
+            handler.execute(JobExecutionContext.of(1001, "executor-1", "sync-b", 0, 2, triggerTime));
+            handler.execute(JobExecutionContext.of(1001, "executor-1", "sync-a", 1, 2, triggerTime));
+            handler.execute(JobExecutionContext.of(1001, "executor-1", "sync-a", 0, 2, triggerTime.plusSeconds(1)));
+
+            assertThat(context.getBean(CountingJobHandler.class).invocationCount).isEqualTo(4);
+        });
+    }
+
+    @Test
+    @DisplayName("幂等键应安全编码字段避免分隔符碰撞")
+    void idempotencyKeyShouldEncodeFieldsWithoutDelimiterCollisions() {
+        contextRunner.withBean(CountingJobHandler.class, CountingJobHandler::new).run(context -> {
+            IdempotentJobHandler handler = context.getBean(IdempotentJobHandler.class);
+            Instant triggerTime = Instant.parse("2026-07-11T00:00:00Z");
+
+            handler.execute(JobExecutionContext.of(1, "2", "3-4", 5, 6, triggerTime));
+            handler.execute(JobExecutionContext.of(1, "2-3", "4", 5, 6, triggerTime));
+
+            assertThat(context.getBean(CountingJobHandler.class).invocationCount).isEqualTo(2);
+        });
+    }
+
+    @Test
+    @DisplayName("执行超过默认超时时间应返回超时结果")
+    void executionExceedingDefaultTimeoutShouldReturnTimeout() {
+        contextRunner.withPropertyValues("framework.xxl-job.timeout.default-timeout=1")
+                .withBean(SlowJobHandler.class, SlowJobHandler::new)
+                .run(context -> assertThat(context.getBean(IdempotentJobHandler.class)
+                        .execute(JobExecutionContext.of(1001, "executor-1", "sync")).isTimeout()).isTrue());
     }
 
     @Test
@@ -131,6 +205,41 @@ class XxlJobAutoConfigurationTest {
         @Override
         public com.microservice.framework.xxljob.api.JobHandler getDelegate() {
             return null;
+        }
+    }
+
+    static class CountingJobHandler implements JobHandler {
+
+        private int invocationCount;
+
+        @Override
+        public JobResult execute(JobExecutionContext context) {
+            invocationCount++;
+            return JobResult.success("handled");
+        }
+    }
+
+    static class FailingJobHandler implements JobHandler {
+
+        private int invocationCount;
+
+        @Override
+        public JobResult execute(JobExecutionContext context) {
+            invocationCount++;
+            return JobResult.fail("retry me");
+        }
+    }
+
+    static class SlowJobHandler implements JobHandler {
+
+        @Override
+        public JobResult execute(JobExecutionContext context) {
+            try {
+                Thread.sleep(5_000);
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+            }
+            return JobResult.success();
         }
     }
 }

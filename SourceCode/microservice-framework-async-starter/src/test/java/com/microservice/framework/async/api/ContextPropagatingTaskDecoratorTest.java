@@ -112,6 +112,19 @@ class ContextPropagatingTaskDecoratorTest {
     }
 
     @Test
+    @DisplayName("在调用线程执行任务后应恢复调用线程原有上下文")
+    void shouldRestoreCallerContextAfterRunningOnCallerThread() {
+        contextAdapter.get().put(ContextKeys.REQUEST_ID, "caller-request");
+
+        Runnable decorated = decorator.decorate(() ->
+                assertThat(contextAdapter.get().get(ContextKeys.REQUEST_ID)).isEqualTo("caller-request"));
+
+        decorated.run();
+
+        assertThat(contextAdapter.get().get(ContextKeys.REQUEST_ID)).isEqualTo("caller-request");
+    }
+
+    @Test
     @DisplayName("decorate 任务抛异常时也应清理上下文")
     void decorateShouldCleanUpContextEvenWhenTaskThrows() {
         FrameworkContext parentContext = contextAdapter.get();
