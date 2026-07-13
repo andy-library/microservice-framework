@@ -4,15 +4,23 @@
 
 面向生产级分布式系统的企业级 Java/Spring Boot 微服务应用基座。
 
-[GitHub 首页](./README.md) | [English](./README-en.md) | [公开 PRD](./PRD/README.md) | [贡献指南](./CONTRIBUTING.md) | [安全策略](./SECURITY.md) | [路线图](./ROADMAP.md)
+[GitHub 首页](./README.md) | [English](./README-en.md) | [快速开始](#快速开始) | [公开 PRD](./PRD/README.md) | [Discussions](https://github.com/andy-library/microservice-framework/discussions) | [贡献指南](./CONTRIBUTING.md)
 
 ![Java](https://img.shields.io/badge/Java-21-blue)
 ![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.3.13-brightgreen)
 ![Spring Cloud](https://img.shields.io/badge/Spring%20Cloud-2023.0.6-brightgreen)
 ![License](https://img.shields.io/badge/License-Apache%202.0-blue)
 ![Build](https://github.com/andy-library/microservice-framework/actions/workflows/maven-verify.yml/badge.svg)
+[![GitHub stars](https://img.shields.io/github/stars/andy-library/microservice-framework?style=flat&logo=github)](https://github.com/andy-library/microservice-framework/stargazers)
+[![GitHub release](https://img.shields.io/github/v/release/andy-library/microservice-framework?include_prereleases&sort=semver)](https://github.com/andy-library/microservice-framework/releases)
+[![GitHub issues](https://img.shields.io/github/issues/andy-library/microservice-framework)](https://github.com/andy-library/microservice-framework/issues)
+[![Contributors](https://img.shields.io/github/contributors/andy-library/microservice-framework)](https://github.com/andy-library/microservice-framework/graphs/contributors)
 
 Microservice Framework 是一套面向企业级微服务体系的 Java/Spring Boot 应用基座。它通过统一 Parent、BOM、Starter 和验收体系，帮助应用团队快速创建可运行、可治理、可观测、可扩展的业务应用，让业务团队尽量专注于业务代码本身。
+
+**五分钟开始：** [构建框架与运行 Demo](#快速开始) · [查看公开 PRD](./PRD/README.md) · [参与讨论](https://github.com/andy-library/microservice-framework/discussions)
+
+如果项目能减少你的基础设施重复建设，欢迎 Star 并在真实项目中验证。Issue、测试结果和代码审查都会直接帮助框架持续演进。
 
 ## 为什么需要这个项目
 

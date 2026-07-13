@@ -4,15 +4,23 @@ Author: Andy Yang
 
 Enterprise-grade Java/Spring Boot microservice foundation for production-ready distributed systems.
 
-[中文首页](./README.md) | [中文文档](./README-zh.md) | [Public PRD](./PRD/README.md) | [Contributing](./CONTRIBUTING.md) | [Security](./SECURITY.md) | [Roadmap](./ROADMAP.md)
+[中文首页](./README.md) | [Quick Start](#quick-start) | [Public PRD](./PRD/README.md) | [Discussions](https://github.com/andy-library/microservice-framework/discussions) | [Contributing](./CONTRIBUTING.md) | [Security](./SECURITY.md)
 
 ![Java](https://img.shields.io/badge/Java-21-blue)
 ![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.3.13-brightgreen)
 ![Spring Cloud](https://img.shields.io/badge/Spring%20Cloud-2023.0.6-brightgreen)
 ![License](https://img.shields.io/badge/License-Apache%202.0-blue)
 ![Build](https://github.com/andy-library/microservice-framework/actions/workflows/maven-verify.yml/badge.svg)
+[![GitHub stars](https://img.shields.io/github/stars/andy-library/microservice-framework?style=flat&logo=github)](https://github.com/andy-library/microservice-framework/stargazers)
+[![GitHub release](https://img.shields.io/github/v/release/andy-library/microservice-framework?include_prereleases&sort=semver)](https://github.com/andy-library/microservice-framework/releases)
+[![GitHub issues](https://img.shields.io/github/issues/andy-library/microservice-framework)](https://github.com/andy-library/microservice-framework/issues)
+[![Contributors](https://img.shields.io/github/contributors/andy-library/microservice-framework)](https://github.com/andy-library/microservice-framework/graphs/contributors)
 
 Microservice Framework is an enterprise-grade Java/Spring Boot microservice foundation. It provides managed parent POMs, BOM-based dependency governance, reusable starters, and a verification model so application teams can focus on business development.
+
+**Start in five minutes:** [build the framework and run the Demo](#quick-start) · [read the public PRD](./PRD/README.md) · [join Discussions](https://github.com/andy-library/microservice-framework/discussions)
+
+If the project saves your team from rebuilding infrastructure foundations, consider starring it and validating it in a real application. Issues, test results, and code reviews directly improve the framework.
 
 ## Why This Project
 
