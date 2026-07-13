@@ -2,7 +2,7 @@
 
 Author: Andy Yang
 
-对应需求：[Apollo PRD](../../PRD/starters/apollo-starter-PRD.md)
+对应需求：[Apollo PRD](../../Requirements/starters/apollo-starter-PRD.md)
 
 ## 1. 技术栈
 

@@ -575,4 +575,4 @@ String spanId = ObservabilityUtils.getSpanId();
 ## 相关文档
 
 - [Logging Starter](../microservice-framework-logging-starter/README.md)
-- [Framework Demo](../microservice-framework-demo/README.md)
+- [Framework Demo](../../Microservice%20Demo/SourceCode/microservice-framework-demo/README.md)

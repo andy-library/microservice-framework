@@ -2,7 +2,7 @@
 
 Author: Andy Yang
 
-对应需求：[Redis PRD](../../PRD/starters/redis-starter-PRD.md)
+对应需求：[Redis PRD](../../Requirements/starters/redis-starter-PRD.md)
 
 ## 1. 技术栈
 

@@ -2,7 +2,7 @@
 
 Author: Andy Yang
 
-对应需求：[JSON PRD](../../PRD/starters/json-starter-PRD.md)
+对应需求：[JSON PRD](../../Requirements/starters/json-starter-PRD.md)
 
 ## 1. 技术栈
 

@@ -2,7 +2,7 @@
 
 Author: Andy Yang
 
-对应需求：[Database PRD](../../PRD/starters/database-starter-PRD.md)
+对应需求：[Database PRD](../../Requirements/starters/database-starter-PRD.md)
 
 ## 1. 技术栈
 

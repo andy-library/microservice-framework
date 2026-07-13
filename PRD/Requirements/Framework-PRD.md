@@ -42,6 +42,7 @@ GitHub 主目录为 `Microservice`：
 
 ```text
 Microservice/
+├── README.md
 ├── README-zh.md
 ├── README-en.md
 ├── LICENSE
@@ -208,3 +209,11 @@ nacos-starter 或 apollo-starter
 3. README 必须提供中英文版本。
 4. 社区可通过 Issue、Discussion、Pull Request、文档改进、测试补充和能力扩展共同维护项目。
 5. 捐赠支持可作为社区协作补充，但不得影响框架开放治理原则。
+
+## 17. 产品边界
+
+1. Framework 提供应用基座和工程契约，不替代业务领域建模、容量规划、生产拓扑设计、灾备方案或安全评审。
+2. Gateway、Keycloak 服务端、Kubernetes 集群和各中间件服务属于部署环境，不由 Starter 创建或托管。
+3. 高并发能力通过有界资源、连接复用、异步治理、缓存和可观测机制支撑；具体容量必须由目标环境中的性能测试证明。
+4. Starter 只承诺已发布公共 API、配置契约和验收用例覆盖的能力，不把规划能力描述为当前实现。
+5. 涉及缓存一致性、分布式事务、消息幂等和数据补偿的业务策略，必须由应用结合领域语义完成，Framework 提供标准机制和扩展点。

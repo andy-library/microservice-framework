@@ -1,121 +1,59 @@
-# 集成测试策略说明
+# 集成与应用验收策略
 
 Author: Andy Yang
 
-生成日期：2026-06-16  
-适用范围：Framework Starter 全部中间件模块
+本文定义 Framework 对真实协议、Starter 组合和应用侧公共能力的持续验收方式。测试结果以 CI 记录和 `Microservice Demo/Reports` 中的正式报告为准。
 
-## 1. 当前状态
+## 1. 测试分层
 
-当前所有 Starter 的 `mvn clean verify` 均为纯单元测试和自动配置测试，
-不执行集成测试（`*IT.java`、`*IntegrationTest.java`、`*E2ETest.java`）。
-
-检查命令：
-
-```bash
-find SourceCodes/microservice-framework-*-starter/src/test -type f \
-  \( -name '*IT.java' -o -name '*IntegrationTest.java' -o -name '*E2ETest.java' \) \
-  -print | sort
-```
-
-结果：无输出。
-
-## 2. 需要集成测试的中间件
-
-| Starter | 是否需要 Testcontainers | 说明 |
+| 层级 | 运行位置 | 验证目标 |
 | --- | --- | --- |
-| Redis Starter | 是 | `RedisAutoConfiguration` 创建 `RedisTemplate`、`StringRedisTemplate` 等依赖真实 Redis 服务器的 Bean。单元测试使用 ApplicationContextRunner + FakeRedisConnectionFactory 覆盖自动配置逻辑，但不验证真实 Redis 操作行为 |
-| Kafka Starter | 是 | Kafka Producer/Consumer 需要真实 Kafka Broker。当前测试为接口契约测试和自动配置测试，不验证消息收发 |
-| Elasticsearch Starter | 是 | `DefaultElasticsearchOperations` 和 `DefaultIndexManager` 委托 `ElasticsearchTemplate`，需要真实 ES 节点验证索引操作 |
+| 单元与契约测试 | 各 Parent/Starter 模块 | 公共 API、算法、配置绑定、自动配置条件和失败边界 |
+| Starter 集成测试 | 对应 Starter | 与框架适配层、序列化、Spring 容器和外部协议的集成 |
+| Demo 嵌入式验收 | Demo 默认 Profile | 所有面向应用开发者的 Controller API 和跨 Starter 组合 |
+| Demo 真实中间件验收 | `real-middleware-acceptance` Profile | MySQL、Redis、Kafka、Elasticsearch、Nacos、Apollo 等真实服务交互 |
+| 性能测试 | JMeter | 在声明的环境、数据和并发模型下形成可复现基线 |
 
-## 3. 不需要集成测试的 Starter
+## 2. 默认构建
 
-| Starter | 原因 |
-| --- | --- |
-| Web Starter | 纯 Servlet/Spring MVC 逻辑，`MockHttpServletRequest`/`MockHttpServletResponse` 完全覆盖 |
-| Logging Starter | Logback TurboFilter/Converter 不依赖外部服务 |
-| Observability Starter | Tracing/Metrics 切面不依赖外部服务 |
-| Apollo/Nacos Starter | 配中心客户端配置测试可使用 mock server |
-| 其他无中间件依赖的 Starter | 纯逻辑组件 |
-
-## 4. 默认 `mvn clean verify` 行为
-
-- **不执行集成测试**
-- 集成测试通过 Maven Failsafe Plugin 在 `-Pintegration-test` profile 下执行
-- 默认 profile 只运行 Surefire（单元测试）
-
-## 5. 集成测试 Profile
-
-```xml
-<profile>
-    <id>integration-test</id>
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-failsafe-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <goals>
-                            <goal>integration-test</goal>
-                            <goal>verify</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
-        </plugins>
-    </build>
-</profile>
-```
-
-使用方式：
+每个模块的默认命令为：
 
 ```bash
-# 仅单元测试（默认）
 mvn clean verify
-
-# 单元测试 + 集成测试
-mvn clean verify -Pintegration-test
 ```
 
-## 6. 后续补齐计划
+默认构建必须可重复、不得依赖开发者机器上的私有服务或凭证。需要外部服务的用例应使用独立 Profile，并通过环境变量或 Maven 属性注入连接信息。
 
-| 优先级 | 任务 | 目标时间 |
-| --- | --- | --- |
-| P1 | Redis Starter Testcontainers IT | 下个迭代 |
-| P1 | Kafka Starter Testcontainers IT | 下个迭代 |
-| P2 | Elasticsearch Starter Testcontainers IT | 下个迭代 |
-| P2 | Parent 添加 integration-test profile | 下个迭代 |
-| P3 | Database Starter IT（需真实数据库） | 未来迭代 |
+## 3. Demo 验收
 
-## 7. Testcontainers 依赖说明
+Demo 为独立可运行应用。每个 Starter 对应用开发者开放的能力必须由独立 Controller 提供测试 API，并由自动化测试覆盖正常、边界和失败场景。Starter 内部实现细节不得为了测试而暴露为 HTTP API。
 
-当补齐集成测试时，需要在 Parent 或对应 Starter 的 pom.xml 添加：
+真实中间件验收命令：
 
-```xml
-<dependency>
-    <groupId>org.testcontainers</groupId>
-    <artifactId>testcontainers</artifactId>
-    <scope>test</scope>
-</dependency>
-<!-- Redis -->
-<dependency>
-    <groupId>org.testcontainers</groupId>
-    <artifactId>redis</artifactId>
-    <scope>test</scope>
-</dependency>
-<!-- Kafka -->
-<dependency>
-    <groupId>org.testcontainers</groupId>
-    <artifactId>kafka</artifactId>
-    <scope>test</scope>
-</dependency>
-<!-- Elasticsearch -->
-<dependency>
-    <groupId>org.testcontainers</groupId>
-    <artifactId>elasticsearch</artifactId>
-    <scope>test</scope>
-</dependency>
+```bash
+mvn verify -Preal-middleware-acceptance \
+  -Ddemo.real.middleware.acceptance=true
 ```
 
-版本由 `microservice-framework-dependencies` BOM 统一管理。
+连接地址和凭证必须由环境注入，不得提交真实密码、Token 或私有网络信息。测试结束后应清理临时主题、索引、键、对象和数据库记录，或使用隔离命名空间避免污染共享环境。
+
+## 4. 中间件覆盖
+
+| 能力 | 最低真实验收 |
+| --- | --- |
+| Database | 连接、事务、读写路由、迁移边界及显式启用的增强能力 |
+| Redis | 序列化、TTL、失效、锁、限流、计数和批量边界 |
+| Kafka | 生产、消费、Header、提交策略、重试、死信和幂等边界 |
+| Elasticsearch | 索引、文档、查询、分页、批量和别名操作 |
+| Nacos/Apollo | 配置读取、优先级、刷新、删除/恢复、互斥和敏感信息保护 |
+| Object Storage | 上传、下载、删除、元数据、预签名和大对象边界 |
+| Security/Feign | JWT/服务身份校验、上下文传播、超时、重试和失败关闭 |
+
+## 5. 通过标准
+
+1. Parent、全部 Starter 和 Demo 的默认 `mvn clean verify` 通过。
+2. 真实中间件 Profile 在声明的受支持环境中通过，且不存在无理由跳过的验收项。
+3. 每个公共能力均能从应用代码调用，并有可定位到 PRD 条目的测试证据。
+4. 失败场景不会泄露敏感信息，不产生无界重试、无限队列或资源泄漏。
+5. 测试可重复执行，不依赖执行顺序，并能清理或隔离测试数据。
+6. 性能报告必须记录硬件、JVM、数据规模、并发模型、持续时间、成功率、吞吐和延迟分位数；不得将单一环境结果宣称为通用容量保证。

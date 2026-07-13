@@ -2,7 +2,7 @@
 
 Author: Andy Yang
 
-对应需求：[Object Storage PRD](../../PRD/starters/object-storage-starter-PRD.md)
+对应需求：[Object Storage PRD](../../Requirements/starters/object-storage-starter-PRD.md)
 
 ## 1. 技术栈
 

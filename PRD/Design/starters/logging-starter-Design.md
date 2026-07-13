@@ -2,7 +2,7 @@
 
 Author: Andy Yang
 
-对应需求：[Logging PRD](../../PRD/starters/logging-starter-PRD.md)
+对应需求：[Logging PRD](../../Requirements/starters/logging-starter-PRD.md)
 
 ## 1. 技术栈
 

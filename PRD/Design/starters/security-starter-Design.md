@@ -2,7 +2,7 @@
 
 Author: Andy Yang
 
-对应需求：[Security PRD](../../PRD/starters/security-starter-PRD.md)
+对应需求：[Security PRD](../../Requirements/starters/security-starter-PRD.md)
 
 ## 1. 技术栈
 

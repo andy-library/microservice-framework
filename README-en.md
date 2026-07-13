@@ -4,7 +4,7 @@ Author: Andy Yang
 
 Enterprise-grade Java/Spring Boot microservice foundation for production-ready distributed systems.
 
-[中文文档](./README-zh.md) | [Contributing](./CONTRIBUTING.md) | [Security](./SECURITY.md) | [Roadmap](./ROADMAP.md)
+[中文首页](./README.md) | [中文文档](./README-zh.md) | [Public PRD](./PRD/README.md) | [Contributing](./CONTRIBUTING.md) | [Security](./SECURITY.md) | [Roadmap](./ROADMAP.md)
 
 ![Java](https://img.shields.io/badge/Java-21-blue)
 ![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.3.13-brightgreen)
@@ -22,6 +22,24 @@ Microservice Framework is an enterprise-grade Java/Spring Boot microservice foun
 - Standalone demo application with Controller APIs for starter capability verification.
 - JMeter scripts and bilingual performance reports for reproducible community testing.
 - Designed for enterprise middle-platform systems, C-end high-traffic applications, and Spring Boot microservice teams that need unified engineering governance.
+
+## Open Source Vision
+
+Microservice Framework grew from an enterprise application scaffold that Andy Yang has maintained since the JDK 8 era. It has supported multiple real-world projects and accumulated practical experience in microservice development, infrastructure integration, engineering governance, and production operations.
+
+In the era of AI-assisted software engineering, the project has been systematically rebuilt on that foundation. Its architecture boundaries were revisited, the Parent, BOM, and Starter model was unified, and automated tests, Demo acceptance, real-middleware verification, and open source engineering practices were added. AI participates in requirements refinement, technical design, implementation, testing, review, and documentation, while the maintainer remains responsible for goals, architecture constraints, quality standards, and final acceptance.
+
+The project has three primary open source goals:
+
+1. Provide the community with a usable, verifiable, and extensible Java microservice foundation that reduces repeated implementation of common enterprise capabilities.
+2. Continuously improve completeness, reliability, security, and production suitability through real-world feedback, community contributions, and repeatable acceptance evidence.
+3. Explore AI-driven software engineering by evaluating whether AI can sustainably perform framework design, development, testing, review, and maintenance under explicit requirements, architecture rules, test standards, and governance, reducing dependence on any particular developer.
+
+Future changes will preferentially follow an AI-driven engineering workflow. AI-generated changes must still pass automated tests, Demo validation, code review, and maintainer acceptance. The use of AI does not lower quality, security, or compatibility standards.
+
+We invite developers to run the Demo, validate Starters, report issues, add tests, review AI-generated code, and propose stronger production implementations. Community feedback improves the framework and provides evidence for understanding the practical boundaries of AI software engineering.
+
+> Humans define goals, boundaries, and acceptance criteria; AI performs the main engineering work; automated evidence and community review validate the result together.
 
 ## Quick Start
 
@@ -47,6 +65,7 @@ mvn clean verify
 
 ```text
 Microservice/
+├── README.md
 ├── README-zh.md
 ├── README-en.md
 ├── LICENSE

@@ -2,7 +2,7 @@
 
 Author: Andy Yang
 
-对应需求：[Elasticsearch PRD](../../PRD/starters/elasticsearch-starter-PRD.md)
+对应需求：[Elasticsearch PRD](../../Requirements/starters/elasticsearch-starter-PRD.md)
 
 ## 1. 技术栈
 

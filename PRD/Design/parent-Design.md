@@ -2,7 +2,7 @@
 
 Author: Andy Yang
 
-对应需求：[Parent PRD](../PRD/Parent-PRD.md)
+对应需求：[Parent PRD](../Requirements/Parent-PRD.md)
 
 ## 1. 技术设计
 

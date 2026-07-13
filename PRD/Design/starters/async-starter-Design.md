@@ -2,7 +2,7 @@
 
 Author: Andy Yang
 
-对应需求：[Async PRD](../../PRD/starters/async-starter-PRD.md)
+对应需求：[Async PRD](../../Requirements/starters/async-starter-PRD.md)
 
 ## 1. 技术栈
 

@@ -2,7 +2,7 @@
 
 Author: Andy Yang
 
-对应需求：[Observability PRD](../../PRD/starters/observability-starter-PRD.md)
+对应需求：[Observability PRD](../../Requirements/starters/observability-starter-PRD.md)
 
 ## 1. 技术栈
 
