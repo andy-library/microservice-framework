@@ -3,27 +3,30 @@ package com.microservice.framework.objectstorage.autoconfigure;
 import com.microservice.framework.objectstorage.ObjectStorageProperties;
 import com.microservice.framework.objectstorage.api.ObjectStorageException;
 import com.microservice.framework.objectstorage.api.PreSignedUrlGenerator;
+import software.amazon.awssdk.core.exception.SdkClientException;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
+import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Objects;
 
 /**
- * AWS S3 预签名 URL 生成器的占位实现
- * <p>
- * 当 AWS S3 SDK 存在于类路径时，此实现提供基于 S3 的预签名 URL 生成。
- * <p>
- * 注意：此实现为框架内置占位实现，实际 SDK 调用需在运行时通过 S3Presigner 完成。
- * 由于 AWS S3 SDK 为可选依赖，方法体内抛出 {@link ObjectStorageException#OS_INTERNAL_ERROR}
- * 以标识此类需要配合 S3 SDK 使用。
+ * AWS S3 预签名 URL 生成器实现。
  *
  * @author Andy Yang
  */
 class S3PreSignedUrlGenerator implements PreSignedUrlGenerator {
 
+    private final S3Presigner presigner;
     private final ObjectStorageProperties properties;
 
-    S3PreSignedUrlGenerator(ObjectStorageProperties properties) {
-        this.properties = properties;
+    S3PreSignedUrlGenerator(S3Presigner presigner, ObjectStorageProperties properties) {
+        this.presigner = Objects.requireNonNull(presigner, "presigner must not be null");
+        this.properties = Objects.requireNonNull(properties, "properties must not be null");
     }
 
     private String defaultBucket() {
@@ -32,8 +35,20 @@ class S3PreSignedUrlGenerator implements PreSignedUrlGenerator {
 
     @Override
     public String generateUploadUrl(String bucket, String key) {
-        throw new ObjectStorageException(ObjectStorageException.OS_INTERNAL_ERROR,
-                "S3PreSignedUrlGenerator requires AWS S3 SDK runtime");
+        String resolvedBucket = ObjectStorageSupport.requireText(bucket, "bucket");
+        String resolvedKey = ObjectStorageSupport.requireText(key, "key");
+        Duration expiry = Duration.ofSeconds(properties.getPresign().getDefaultExpiry());
+        try {
+            return presigner.presignPutObject(PutObjectPresignRequest.builder()
+                    .signatureDuration(expiry)
+                    .putObjectRequest(PutObjectRequest.builder()
+                            .bucket(resolvedBucket)
+                            .key(resolvedKey)
+                            .build())
+                    .build()).url().toString();
+        } catch (RuntimeException ex) {
+            throw translate("presign upload", ex);
+        }
     }
 
     @Override
@@ -43,8 +58,7 @@ class S3PreSignedUrlGenerator implements PreSignedUrlGenerator {
 
     @Override
     public String generateDownloadUrl(String bucket, String key) {
-        throw new ObjectStorageException(ObjectStorageException.OS_INTERNAL_ERROR,
-                "S3PreSignedUrlGenerator requires AWS S3 SDK runtime");
+        return generateUrl(bucket, key, Duration.ofSeconds(properties.getPresign().getDefaultExpiry()));
     }
 
     @Override
@@ -54,8 +68,20 @@ class S3PreSignedUrlGenerator implements PreSignedUrlGenerator {
 
     @Override
     public String generateUrl(String bucket, String key, Duration expiry) {
-        throw new ObjectStorageException(ObjectStorageException.OS_INTERNAL_ERROR,
-                "S3PreSignedUrlGenerator requires AWS S3 SDK runtime");
+        String resolvedBucket = ObjectStorageSupport.requireText(bucket, "bucket");
+        String resolvedKey = ObjectStorageSupport.requireText(key, "key");
+        Duration resolvedExpiry = ObjectStorageSupport.requirePositiveExpiry(expiry);
+        try {
+            return presigner.presignGetObject(GetObjectPresignRequest.builder()
+                    .signatureDuration(resolvedExpiry)
+                    .getObjectRequest(GetObjectRequest.builder()
+                            .bucket(resolvedBucket)
+                            .key(resolvedKey)
+                            .build())
+                    .build()).url().toString();
+        } catch (RuntimeException ex) {
+            throw translate("presign download", ex);
+        }
     }
 
     @Override
@@ -65,12 +91,23 @@ class S3PreSignedUrlGenerator implements PreSignedUrlGenerator {
 
     @Override
     public String generateUrl(String bucket, String key, Instant expiration) {
-        throw new ObjectStorageException(ObjectStorageException.OS_INTERNAL_ERROR,
-                "S3PreSignedUrlGenerator requires AWS S3 SDK runtime");
+        return generateUrl(bucket, key, ObjectStorageSupport.expiryUntil(expiration));
     }
 
     @Override
     public String getImplementationName() {
         return "s3";
+    }
+
+    private ObjectStorageException translate(String operation, RuntimeException ex) {
+        if (ex instanceof ObjectStorageException objectStorageException) {
+            return objectStorageException;
+        }
+        if (ex instanceof SdkClientException) {
+            return new ObjectStorageException(ObjectStorageException.OS_PRESIGN_FAILED,
+                    ObjectStorageSupport.safeMessage("S3", operation), ex);
+        }
+        return new ObjectStorageException(ObjectStorageException.OS_PRESIGN_FAILED,
+                ObjectStorageSupport.safeMessage("S3", operation), ex);
     }
 }

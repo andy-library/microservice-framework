@@ -16,9 +16,11 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.sql.Timestamp;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -65,6 +67,10 @@ public class OutboxAutoConfiguration {
                             event_type varchar(128) not null,
                             payload text not null,
                             published boolean not null default false,
+                            claimed_by varchar(128),
+                            claimed_until timestamp,
+                            retry_count integer not null default 0,
+                            last_error varchar(1024),
                             created_at timestamp not null
                         )
                         """.formatted(tableName()));
@@ -90,7 +96,11 @@ public class OutboxAutoConfiguration {
         public void markPublished(String eventId) {
             requireNonBlank(eventId, "eventId");
             int updated = jdbcTemplate.update(
-                    "update %s set published = ? where event_id = ?".formatted(tableName()), true, eventId);
+                    """
+                            update %s
+                            set published = ?, claimed_by = null, claimed_until = null
+                            where event_id = ?
+                            """.formatted(tableName()), true, eventId);
             if (updated != 1) {
                 throw new FrameworkException(
                         FrameworkErrorCode.of(MODULE, "OUTBOX", 1),
@@ -101,15 +111,73 @@ public class OutboxAutoConfiguration {
         @Override
         public List<OutboxEvent> findUnpublished() {
             return jdbcTemplate.queryForList("""
-                            select event_id, aggregate_type, aggregate_id, event_type, payload, published, created_at
+                            select event_id, aggregate_type, aggregate_id, event_type, payload, published,
+                                   claimed_by, claimed_until, retry_count, last_error, created_at
                             from %s
                             where published = ?
+                              and (claimed_until is null or claimed_until <= ?)
                             order by created_at asc
                             limit ?
-                            """.formatted(tableName()), false, properties.getMaxFetchSize())
+                            """.formatted(tableName()), false, Timestamp.from(Instant.now()),
+                            properties.getMaxFetchSize())
                     .stream()
                     .map(this::toEvent)
                     .toList();
+        }
+
+        @Override
+        public List<OutboxEvent> claimUnpublished(String publisherId, Duration leaseDuration) {
+            requireNonBlank(publisherId, "publisherId");
+            if (leaseDuration == null || leaseDuration.isZero() || leaseDuration.isNegative()) {
+                throw new IllegalArgumentException("leaseDuration must be positive");
+            }
+            Instant now = Instant.now();
+            Instant claimedUntil = now.plus(leaseDuration);
+            List<OutboxEvent> claimed = new ArrayList<>();
+            while (claimed.size() < properties.getMaxFetchSize()) {
+                List<String> candidateIds = jdbcTemplate.queryForList("""
+                                select event_id
+                                from %s
+                                where published = ?
+                                  and (claimed_until is null or claimed_until <= ?)
+                                order by created_at asc
+                                limit ?
+                                """.formatted(tableName()), String.class, false, Timestamp.from(now),
+                        properties.getMaxFetchSize() - claimed.size());
+                if (candidateIds.isEmpty()) {
+                    break;
+                }
+                boolean claimedAtLeastOne = false;
+                for (String eventId : candidateIds) {
+                    int updated = jdbcTemplate.update("""
+                                    update %s
+                                    set claimed_by = ?,
+                                        claimed_until = ?,
+                                        retry_count = retry_count + 1
+                                    where event_id = ?
+                                      and published = ?
+                                      and (claimed_until is null or claimed_until <= ?)
+                                    """.formatted(tableName()),
+                            publisherId, Timestamp.from(claimedUntil), eventId, false, Timestamp.from(now));
+                    if (updated == 1) {
+                        claimed.add(loadEvent(eventId));
+                        claimedAtLeastOne = true;
+                    }
+                }
+                if (!claimedAtLeastOne) {
+                    continue;
+                }
+            }
+            return claimed;
+        }
+
+        private OutboxEvent loadEvent(String eventId) {
+            return toEvent(jdbcTemplate.queryForMap("""
+                    select event_id, aggregate_type, aggregate_id, event_type, payload, published,
+                           claimed_by, claimed_until, retry_count, last_error, created_at
+                    from %s
+                    where event_id = ?
+                    """.formatted(tableName()), eventId));
         }
 
         private OutboxEvent toEvent(Map<String, Object> row) {
@@ -119,8 +187,12 @@ public class OutboxAutoConfiguration {
                     value(row, "aggregate_id"),
                     value(row, "event_type"),
                     value(row, "payload"),
-                    Boolean.TRUE.equals(row.get("published")),
-                    toInstant(row.get("created_at")));
+                    booleanValue(row, "published"),
+                    toInstant(row.get("created_at")),
+                    value(row, "claimed_by"),
+                    nullableInstant(row.get("claimed_until")),
+                    intValue(row, "retry_count"),
+                    value(row, "last_error"));
         }
 
         private String value(Map<String, Object> row, String key) {
@@ -132,6 +204,17 @@ public class OutboxAutoConfiguration {
         }
 
         private Instant toInstant(Object value) {
+            Instant instant = nullableInstant(value);
+            if (instant == null) {
+                throw new IllegalArgumentException("timestamp value must not be null");
+            }
+            return instant;
+        }
+
+        private Instant nullableInstant(Object value) {
+            if (value == null) {
+                return null;
+            }
             if (value instanceof Timestamp timestamp) {
                 return timestamp.toInstant();
             }
@@ -142,6 +225,31 @@ public class OutboxAutoConfiguration {
                 return instant;
             }
             return Instant.parse(value.toString());
+        }
+
+        private int intValue(Map<String, Object> row, String key) {
+            Object value = row.get(key);
+            if (value == null) {
+                value = row.get(key.toUpperCase(java.util.Locale.ROOT));
+            }
+            if (value instanceof Number number) {
+                return number.intValue();
+            }
+            return value == null ? 0 : Integer.parseInt(value.toString());
+        }
+
+        private boolean booleanValue(Map<String, Object> row, String key) {
+            Object value = row.get(key);
+            if (value == null) {
+                value = row.get(key.toUpperCase(java.util.Locale.ROOT));
+            }
+            if (value instanceof Boolean bool) {
+                return bool;
+            }
+            if (value instanceof Number number) {
+                return number.intValue() != 0;
+            }
+            return value != null && Boolean.parseBoolean(value.toString());
         }
 
         private String tableName() {

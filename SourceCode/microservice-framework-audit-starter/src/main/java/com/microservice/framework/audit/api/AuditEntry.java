@@ -7,6 +7,8 @@ import java.time.Instant;
 import java.util.HexFormat;
 import java.util.Objects;
 import java.util.Optional;
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 
 /**
  * 审计条目
@@ -15,8 +17,8 @@ import java.util.Optional;
  * 通过 checksum 字段实现防篡改校验，确保审计记录的完整性。
  * <p>
  * checksum 的计算方式：
- * 将 eventType + operatorId + targetId + action + detail + timestamp 拼接后
- * 使用配置的算法（默认 SHA-256）计算哈希值。
+ * 将 id + eventType + operatorId + targetId + action + detail + timestamp 拼接后
+ * 使用配置的算法计算摘要。生产环境应使用 keyed HMAC 算法。
  *
  * @author Andy Yang
  */
@@ -54,6 +56,32 @@ public final class AuditEntry {
         this.detail = detail;
         this.timestamp = Objects.requireNonNull(timestamp, "timestamp must not be null");
         this.checksum = computeChecksum(algorithm);
+    }
+
+    /**
+     * 创建审计条目（使用 keyed tamper evidence 自动计算 checksum）
+     *
+     * @param id         审计条目唯一标识
+     * @param eventType  事件类型
+     * @param operatorId 操作者 ID
+     * @param targetId   目标对象 ID
+     * @param action     操作类型
+     * @param detail     详细描述
+     * @param timestamp  事件时间戳
+     * @param algorithm  HMAC 算法（如 HmacSHA256）
+     * @param key        外部密钥材料
+     */
+    public AuditEntry(String id, String eventType, String operatorId,
+                      String targetId, String action, String detail,
+                      Instant timestamp, String algorithm, byte[] key) {
+        this.id = Objects.requireNonNull(id, "id must not be null");
+        this.eventType = Objects.requireNonNull(eventType, "eventType must not be null");
+        this.operatorId = operatorId;
+        this.targetId = targetId;
+        this.action = Objects.requireNonNull(action, "action must not be null");
+        this.detail = detail;
+        this.timestamp = Objects.requireNonNull(timestamp, "timestamp must not be null");
+        this.checksum = computeChecksum(algorithm, key);
     }
 
     /**
@@ -104,12 +132,7 @@ public final class AuditEntry {
      * @return 计算得到的 checksum
      */
     private String computeChecksum(String algorithm) {
-        String raw = eventType
-                + "|" + (operatorId != null ? operatorId : "")
-                + "|" + (targetId != null ? targetId : "")
-                + "|" + action
-                + "|" + (detail != null ? detail : "")
-                + "|" + timestamp.toString();
+        String raw = canonicalPayload();
         try {
             MessageDigest digest = MessageDigest.getInstance(algorithm);
             byte[] hash = digest.digest(raw.getBytes(StandardCharsets.UTF_8));
@@ -117,6 +140,30 @@ public final class AuditEntry {
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalArgumentException("Unsupported checksum algorithm: " + algorithm, e);
         }
+    }
+
+    private String computeChecksum(String algorithm, byte[] key) {
+        Objects.requireNonNull(key, "key must not be null");
+        if (key.length == 0) {
+            throw new IllegalArgumentException("Audit tamper evidence key must not be empty");
+        }
+        try {
+            Mac mac = Mac.getInstance(algorithm);
+            mac.init(new SecretKeySpec(key, algorithm));
+            return HexFormat.of().formatHex(mac.doFinal(canonicalPayload().getBytes(StandardCharsets.UTF_8)));
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Unsupported checksum algorithm: " + algorithm, e);
+        }
+    }
+
+    private String canonicalPayload() {
+        return id
+                + "|" + eventType
+                + "|" + (operatorId != null ? operatorId : "")
+                + "|" + (targetId != null ? targetId : "")
+                + "|" + action
+                + "|" + (detail != null ? detail : "")
+                + "|" + timestamp.toString();
     }
 
     /**
@@ -130,6 +177,18 @@ public final class AuditEntry {
      */
     public boolean verifyChecksum(String algorithm) {
         String recomputed = computeChecksum(algorithm);
+        return recomputed.equals(checksum);
+    }
+
+    /**
+     * 验证 keyed tamper evidence 是否一致。
+     *
+     * @param algorithm HMAC 算法名称
+     * @param key       外部密钥材料
+     * @return checksum 是否一致（true 表示未被篡改）
+     */
+    public boolean verifyChecksum(String algorithm, byte[] key) {
+        String recomputed = computeChecksum(algorithm, key);
         return recomputed.equals(checksum);
     }
 

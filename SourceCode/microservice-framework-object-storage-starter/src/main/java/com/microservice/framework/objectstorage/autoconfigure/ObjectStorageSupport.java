@@ -23,6 +23,13 @@ final class ObjectStorageSupport {
         return value;
     }
 
+    static String requireProperty(String value, String propertyName) {
+        if (value == null || value.trim().isEmpty()) {
+            throw new IllegalStateException(propertyName + " must be configured");
+        }
+        return value.trim();
+    }
+
     static InputStream requireInputStream(InputStream inputStream) {
         if (inputStream == null) {
             throw new ObjectStorageException(ObjectStorageException.OS_PARAM_NULL,
@@ -81,5 +88,13 @@ final class ObjectStorageSupport {
                     "expiration must not be null");
         }
         return requirePositiveExpiry(Duration.between(Instant.now(), expiration));
+    }
+
+    static String defaultContentType(String contentType) {
+        return contentType == null || contentType.isBlank() ? "application/octet-stream" : contentType;
+    }
+
+    static String safeMessage(String provider, String operation) {
+        return provider + " " + operation + " failed";
     }
 }

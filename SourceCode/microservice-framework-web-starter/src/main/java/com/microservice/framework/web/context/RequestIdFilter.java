@@ -1,5 +1,7 @@
 package com.microservice.framework.web.context;
 
+import com.microservice.framework.common.context.ContextKeys;
+import com.microservice.framework.common.context.ThreadLocalContextAdapter;
 import com.microservice.framework.web.WebProperties;
 import jakarta.servlet.Filter;
 import jakarta.servlet.FilterChain;
@@ -7,8 +9,10 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.ServletRequest;
 import jakarta.servlet.ServletResponse;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
 import java.io.IOException;
 import java.util.UUID;
@@ -33,28 +37,52 @@ public class RequestIdFilter implements Filter {
     private static final Logger log = LoggerFactory.getLogger(RequestIdFilter.class);
 
     private final WebProperties.RequestIdProperties requestIdProperties;
+    private final ThreadLocalContextAdapter contextAdapter;
 
     public RequestIdFilter(WebProperties.RequestIdProperties requestIdProperties) {
+        this(requestIdProperties, new ThreadLocalContextAdapter());
+    }
+
+    public RequestIdFilter(WebProperties.RequestIdProperties requestIdProperties,
+                           ThreadLocalContextAdapter contextAdapter) {
         this.requestIdProperties = requestIdProperties;
+        this.contextAdapter = contextAdapter;
     }
 
     @Override
     public void doFilter(ServletRequest request, ServletResponse response,
                          FilterChain chain) throws IOException, ServletException {
         HttpServletRequest httpRequest = (HttpServletRequest) request;
+        HttpServletResponse httpResponse = (HttpServletResponse) response;
 
         String requestId = resolveRequestId(httpRequest);
+        String previousMdcRequestId = MDC.get(ContextKeys.REQUEST_ID);
         RequestIdContext.set(requestId);
+        if (requestId != null) {
+            httpResponse.setHeader(requestIdProperties.getHeaderName(), requestId);
+            contextAdapter.get().put(ContextKeys.REQUEST_ID, requestId);
+            MDC.put(ContextKeys.REQUEST_ID, requestId);
+            httpRequest.setAttribute(ContextKeys.REQUEST_ID, requestId);
+        }
 
-        // Also store in the framework context for cross-layer propagation
         try {
             chain.doFilter(request, response);
         } finally {
             RequestIdContext.remove();
+            contextAdapter.clear();
+            if (previousMdcRequestId == null) {
+                MDC.remove(ContextKeys.REQUEST_ID);
+            } else {
+                MDC.put(ContextKeys.REQUEST_ID, previousMdcRequestId);
+            }
         }
     }
 
     private String resolveRequestId(HttpServletRequest request) {
+        String traceId = MDC.get("traceId");
+        if (traceId != null && !traceId.isBlank()) {
+            return traceId;
+        }
         String headerName = requestIdProperties.getHeaderName();
         String existingId = request.getHeader(headerName);
 

@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.WebApplicationContextRunner;
+import org.springframework.web.servlet.mvc.method.annotation.ResponseBodyAdvice;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -42,6 +43,8 @@ class WebAutoConfigurationTest {
                 assertThat(context).hasNotFailed();
                 assertThat(context).hasBean("globalExceptionHandler");
                 assertThat(context).hasBean("requestIdFilter");
+                assertThat(context).hasBean("responseWrappingAdvice");
+                assertThat(context).hasSingleBean(ResponseBodyAdvice.class);
                 assertThat(context.getBean(WebProperties.class)).isNotNull();
             });
         }

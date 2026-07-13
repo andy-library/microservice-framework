@@ -1,11 +1,18 @@
 package com.microservice.framework.logging.autoconfigure;
 
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonGenerator;
+import com.microservice.framework.logging.core.masking.MaskingJsonGeneratorDecorator;
+import com.microservice.framework.logging.core.masking.PatternMaskingConverter;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
+import java.io.StringWriter;
+
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Logging AutoConfiguration 集成测试
@@ -19,6 +26,14 @@ class LoggingAutoConfigurationTest {
                     MaskingLoggingAutoConfiguration.class,
                     FloodProtectionAutoConfiguration.class,
                     TraceSamplingAutoConfiguration.class));
+
+    @Test
+    @DisplayName("Logging Starter: 类路径不应包含 Spring Cloud Context")
+    void loggingStarterShouldNotDependOnSpringCloudContext() {
+        assertThatThrownBy(() -> Class.forName(
+                "org.springframework.cloud.context.config.annotation.RefreshScope"))
+                .isInstanceOf(ClassNotFoundException.class);
+    }
 
     // ==================== LoggingBaseAutoConfiguration ====================
 
@@ -63,6 +78,35 @@ class LoggingAutoConfigurationTest {
                         "framework.logging.masking.enabled=false")
                 .run(context -> {
                     assertThat(context).hasNotFailed();
+                });
+    }
+
+    @Test
+    @DisplayName("MaskingLoggingAutoConfiguration: 自定义规则同时应用于消息和 JSON 输出")
+    void customMaskingRuleShouldApplyToMessageAndJsonOutput() {
+        contextRunner
+                .withPropertyValues(
+                        "framework.logging.masking.enabled=true",
+                        "framework.logging.masking.custom-rules[0].name=MEMBER_CARD",
+                        "framework.logging.masking.custom-rules[0].regex=(MC-)(\\d{4})(\\d{4})",
+                        "framework.logging.masking.custom-rules[0].mask=$1****$3")
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+
+                    PatternMaskingConverter converter = context.getBean(PatternMaskingConverter.class);
+                    assertThat(converter.mask("member=MC-12345678"))
+                            .isEqualTo("member=MC-****5678");
+
+                    MaskingJsonGeneratorDecorator decorator =
+                            context.getBean(MaskingJsonGeneratorDecorator.class);
+                    StringWriter writer = new StringWriter();
+                    try (JsonGenerator generator = decorator.decorate(
+                            new JsonFactory().createGenerator(writer))) {
+                        generator.writeStartObject();
+                        generator.writeStringField("memberCard", "MC-12345678");
+                        generator.writeEndObject();
+                    }
+                    assertThat(writer.toString()).contains("MC-****5678");
                 });
     }
 

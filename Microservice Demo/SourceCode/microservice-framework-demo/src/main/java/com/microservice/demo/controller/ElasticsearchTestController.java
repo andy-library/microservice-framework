@@ -1,5 +1,7 @@
 package com.microservice.demo.controller;
 
+import com.microservice.framework.elasticsearch.api.ElasticsearchOperations;
+import com.microservice.framework.elasticsearch.api.IndexManager;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -9,4 +11,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/test/elasticsearch")
 public class ElasticsearchTestController extends ElasticsearchDemoController {
+    public ElasticsearchTestController(ElasticsearchOperations operations, IndexManager indexManager) {
+        super(operations, indexManager);
+    }
 }

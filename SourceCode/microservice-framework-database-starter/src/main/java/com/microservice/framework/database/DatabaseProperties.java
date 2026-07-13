@@ -2,8 +2,10 @@ package com.microservice.framework.database;
 
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.NestedConfigurationProperty;
+import org.springframework.validation.annotation.Validated;
 
 /**
  * Database Starter 配置属性
@@ -14,6 +16,7 @@ import org.springframework.boot.context.properties.NestedConfigurationProperty;
  * @author Andy Yang
  */
 @ConfigurationProperties(prefix = "framework.database")
+@Validated
 public class DatabaseProperties {
 
     /**
@@ -350,6 +353,8 @@ public class DatabaseProperties {
          * Outbox 表名。
          */
         @NotNull
+        @Pattern(regexp = "[A-Za-z][A-Za-z0-9_]{0,63}",
+                message = "tableName must start with a letter and contain only letters, digits, and underscores")
         private String tableName = "framework_outbox_event";
 
         /**

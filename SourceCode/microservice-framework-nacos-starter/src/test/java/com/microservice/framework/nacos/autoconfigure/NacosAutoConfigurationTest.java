@@ -27,20 +27,28 @@ class NacosAutoConfigurationTest {
             .withConfiguration(AutoConfigurations.of(
                     NacosConfigAutoConfiguration.class,
                     KubernetesConfigAutoConfiguration.class,
-                    ConfigGovernanceAutoConfiguration.class));
+                    ConfigGovernanceAutoConfiguration.class,
+                    ConfigCenterMutualExclusionAutoConfiguration.class))
+            .withPropertyValues("framework.nacos.enabled=true");
 
     @Nested
     @DisplayName("默认配置")
     class DefaultConfigurationTests {
 
         @Test
+        @DisplayName("仅引入 Nacos Starter 时不应被判定为配置中心冲突")
+        void nacosOnlyShouldNotBeTreatedAsConfigCenterConflict() {
+            contextRunner.run(context -> assertThat(context).hasNotFailed());
+        }
+
+        @Test
         @DisplayName("默认配置应加载配置治理相关 Bean")
         void defaultConfigurationShouldLoadGovernanceBeans() {
             contextRunner.run(context -> {
                 assertThat(context).hasNotFailed();
-                assertThat(context).hasBean("defaultConfigValidator");
-                assertThat(context).hasBean("defaultRefreshPolicy");
-                assertThat(context).hasBean("defaultSensitiveConfigMasker");
+                assertThat(context).hasBean("nacosConfigValidator");
+                assertThat(context).hasBean("nacosRefreshPolicy");
+                assertThat(context).hasBean("nacosSensitiveConfigMasker");
             });
         }
 
@@ -73,7 +81,7 @@ class NacosAutoConfigurationTest {
 
         @Test
         @DisplayName("默认 RefreshPolicy 应为 ON_CHANGE 策略")
-        void defaultRefreshPolicyShouldBeOnChange() {
+        void nacosRefreshPolicyShouldBeOnChange() {
             contextRunner.run(context -> {
                 assertThat(context).hasNotFailed();
                 RefreshPolicy policy = context.getBean(RefreshPolicy.class);
@@ -84,7 +92,7 @@ class NacosAutoConfigurationTest {
 
         @Test
         @DisplayName("默认 SensitiveConfigMasker 应包含标准敏感键模式")
-        void defaultSensitiveConfigMaskerShouldContainStandardPatterns() {
+        void nacosSensitiveConfigMaskerShouldContainStandardPatterns() {
             contextRunner.run(context -> {
                 assertThat(context).hasNotFailed();
                 SensitiveConfigMasker masker = context.getBean(SensitiveConfigMasker.class);
@@ -116,9 +124,9 @@ class NacosAutoConfigurationTest {
             contextRunner.withPropertyValues("framework.config.enabled=false")
                     .run(context -> {
                         assertThat(context).hasNotFailed();
-                        assertThat(context).doesNotHaveBean("defaultConfigValidator");
-                        assertThat(context).doesNotHaveBean("defaultRefreshPolicy");
-                        assertThat(context).doesNotHaveBean("defaultSensitiveConfigMasker");
+                        assertThat(context).doesNotHaveBean("nacosConfigValidator");
+                        assertThat(context).doesNotHaveBean("nacosRefreshPolicy");
+                        assertThat(context).doesNotHaveBean("nacosSensitiveConfigMasker");
                         assertThat(context).doesNotHaveBean(ConfigValidator.class);
                         assertThat(context).doesNotHaveBean(RefreshPolicy.class);
                         assertThat(context).doesNotHaveBean(SensitiveConfigMasker.class);
@@ -131,10 +139,10 @@ class NacosAutoConfigurationTest {
             contextRunner.withPropertyValues("framework.config.validator.enabled=false")
                     .run(context -> {
                         assertThat(context).hasNotFailed();
-                        assertThat(context).doesNotHaveBean("defaultConfigValidator");
+                        assertThat(context).doesNotHaveBean("nacosConfigValidator");
                         assertThat(context).doesNotHaveBean(ConfigValidator.class);
-                        assertThat(context).hasBean("defaultRefreshPolicy");
-                        assertThat(context).hasBean("defaultSensitiveConfigMasker");
+                        assertThat(context).hasBean("nacosRefreshPolicy");
+                        assertThat(context).hasBean("nacosSensitiveConfigMasker");
                     });
         }
 
@@ -144,10 +152,10 @@ class NacosAutoConfigurationTest {
             contextRunner.withPropertyValues("framework.config.refresh-policy.enabled=false")
                     .run(context -> {
                         assertThat(context).hasNotFailed();
-                        assertThat(context).doesNotHaveBean("defaultRefreshPolicy");
+                        assertThat(context).doesNotHaveBean("nacosRefreshPolicy");
                         assertThat(context).doesNotHaveBean(RefreshPolicy.class);
-                        assertThat(context).hasBean("defaultConfigValidator");
-                        assertThat(context).hasBean("defaultSensitiveConfigMasker");
+                        assertThat(context).hasBean("nacosConfigValidator");
+                        assertThat(context).hasBean("nacosSensitiveConfigMasker");
                     });
         }
 
@@ -157,10 +165,10 @@ class NacosAutoConfigurationTest {
             contextRunner.withPropertyValues("framework.config.masking.enabled=false")
                     .run(context -> {
                         assertThat(context).hasNotFailed();
-                        assertThat(context).doesNotHaveBean("defaultSensitiveConfigMasker");
+                        assertThat(context).doesNotHaveBean("nacosSensitiveConfigMasker");
                         assertThat(context).doesNotHaveBean(SensitiveConfigMasker.class);
-                        assertThat(context).hasBean("defaultConfigValidator");
-                        assertThat(context).hasBean("defaultRefreshPolicy");
+                        assertThat(context).hasBean("nacosConfigValidator");
+                        assertThat(context).hasBean("nacosRefreshPolicy");
                     });
         }
     }
@@ -260,7 +268,7 @@ class NacosAutoConfigurationTest {
                     .run(context -> {
                         assertThat(context).hasNotFailed();
                         assertThat(context).hasBean("customConfigValidator");
-                        assertThat(context).doesNotHaveBean("defaultConfigValidator");
+                        assertThat(context).doesNotHaveBean("nacosConfigValidator");
                         assertThat(context.getBean(ConfigValidator.class)).isEqualTo(customValidator);
                     });
         }
@@ -273,7 +281,7 @@ class NacosAutoConfigurationTest {
                     .run(context -> {
                         assertThat(context).hasNotFailed();
                         assertThat(context).hasBean("customRefreshPolicy");
-                        assertThat(context).doesNotHaveBean("defaultRefreshPolicy");
+                        assertThat(context).doesNotHaveBean("nacosRefreshPolicy");
                         assertThat(context.getBean(RefreshPolicy.class)).isEqualTo(customPolicy);
                     });
         }
@@ -287,7 +295,7 @@ class NacosAutoConfigurationTest {
                     .run(context -> {
                         assertThat(context).hasNotFailed();
                         assertThat(context).hasBean("customSensitiveConfigMasker");
-                        assertThat(context).doesNotHaveBean("defaultSensitiveConfigMasker");
+                        assertThat(context).doesNotHaveBean("nacosSensitiveConfigMasker");
                         assertThat(context.getBean(SensitiveConfigMasker.class)).isEqualTo(customMasker);
                     });
         }

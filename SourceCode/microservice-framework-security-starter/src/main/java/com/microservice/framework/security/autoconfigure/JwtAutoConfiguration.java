@@ -10,6 +10,14 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
+import org.springframework.security.oauth2.core.OAuth2Error;
+import org.springframework.security.oauth2.core.OAuth2TokenValidator;
+import org.springframework.security.oauth2.core.OAuth2TokenValidatorResult;
+import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.JwtValidators;
+import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 
 import java.util.Collection;
@@ -31,8 +39,22 @@ import java.util.Set;
 @AutoConfiguration
 @EnableConfigurationProperties(SecurityProperties.class)
 @ConditionalOnClass(JwtAuthenticationToken.class)
-@ConditionalOnProperty(prefix = "framework.security.jwt", name = "enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(prefix = "framework.security", name = {"enabled", "jwt.enabled"}, havingValue = "true", matchIfMissing = true)
 public class JwtAutoConfiguration {
+
+    @Bean
+    @ConditionalOnMissingBean
+    @ConditionalOnProperty(prefix = "framework.security.jwt",
+            name = {"issuer-uri", "jwk-set-uri", "audience"})
+    public JwtDecoder jwtDecoder(SecurityProperties properties) {
+        SecurityProperties.JwtProperties jwt = properties.getJwt();
+        NimbusJwtDecoder decoder = NimbusJwtDecoder.withJwkSetUri(jwt.getJwkSetUri()).build();
+        OAuth2TokenValidator<Jwt> validator = new DelegatingOAuth2TokenValidator<>(
+                JwtValidators.createDefaultWithIssuer(jwt.getIssuerUri()),
+                new AudienceValidator(jwt.getAudience()));
+        decoder.setJwtValidator(validator);
+        return decoder;
+    }
 
     /**
      * Creates a default {@link ServiceAuthenticator} bean that extracts
@@ -168,6 +190,27 @@ public class JwtAutoConfiguration {
                 }
             }
             return false;
+        }
+    }
+
+    static class AudienceValidator implements OAuth2TokenValidator<Jwt> {
+
+        private final String audience;
+
+        AudienceValidator(String audience) {
+            this.audience = audience;
+        }
+
+        @Override
+        public OAuth2TokenValidatorResult validate(Jwt token) {
+            if (audience != null && token.getAudience().contains(audience)) {
+                return OAuth2TokenValidatorResult.success();
+            }
+            OAuth2Error error = new OAuth2Error(
+                    "invalid_token",
+                    "The required audience is missing",
+                    null);
+            return OAuth2TokenValidatorResult.failure(error);
         }
     }
 }

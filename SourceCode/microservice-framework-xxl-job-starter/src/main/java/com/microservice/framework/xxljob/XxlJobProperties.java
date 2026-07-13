@@ -1,9 +1,16 @@
 package com.microservice.framework.xxljob;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import org.hibernate.validator.group.GroupSequenceProvider;
+import org.hibernate.validator.spi.group.DefaultGroupSequenceProvider;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.NestedConfigurationProperty;
+import org.springframework.validation.annotation.Validated;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * XXL-JOB Starter 配置属性
@@ -14,6 +21,8 @@ import org.springframework.boot.context.properties.NestedConfigurationProperty;
  * @author Andy Yang
  */
 @ConfigurationProperties(prefix = "framework.xxl-job")
+@Validated
+@GroupSequenceProvider(XxlJobProperties.ValidationGroupProvider.class)
 public class XxlJobProperties {
 
     /**
@@ -25,24 +34,28 @@ public class XxlJobProperties {
      * Admin 配置
      */
     @NestedConfigurationProperty
+    @Valid
     private AdminProperties admin = new AdminProperties();
 
     /**
      * Executor 配置
      */
     @NestedConfigurationProperty
+    @Valid
     private ExecutorProperties executor = new ExecutorProperties();
 
     /**
      * 幂等配置
      */
     @NestedConfigurationProperty
+    @Valid
     private IdempotencyProperties idempotency = new IdempotencyProperties();
 
     /**
      * 超时配置
      */
     @NestedConfigurationProperty
+    @Valid
     private TimeoutProperties timeout = new TimeoutProperties();
 
     // Getters and Setters
@@ -99,13 +112,13 @@ public class XxlJobProperties {
          * <p>
          * 示例：http://127.0.0.1:8080/xxl-job-admin,http://127.0.0.1:8081/xxl-job-admin
          */
-        @NotBlank
+        @NotBlank(groups = EnabledConfiguration.class)
         private String addresses;
 
         /**
          * 执行器 AppName（调度中心注册时使用）
          */
-        @NotBlank
+        @NotBlank(groups = EnabledConfiguration.class)
         private String appName;
 
         /**
@@ -150,7 +163,7 @@ public class XxlJobProperties {
         /**
          * 执行器 AppName（与 Admin 配置的 appName 对应）
          */
-        @NotBlank
+        @NotBlank(groups = EnabledConfiguration.class)
         private String appName;
 
         /**
@@ -161,19 +174,19 @@ public class XxlJobProperties {
         /**
          * 执行器端口，默认 9999
          */
-        @Min(1)
+        @Min(value = 1, groups = EnabledConfiguration.class)
         private Integer port = 9999;
 
         /**
          * 执行器日志路径
          */
-        @NotBlank
+        @NotBlank(groups = EnabledConfiguration.class)
         private String logPath = "/data/applogs/xxl-job/jobhandler";
 
         /**
          * 执行器日志保留天数，默认 30
          */
-        @Min(1)
+        @Min(value = 1, groups = EnabledConfiguration.class)
         private Integer logRetentionDays = 30;
 
         // Getters and Setters
@@ -272,7 +285,7 @@ public class XxlJobProperties {
          * <p>
          * 当任务执行超过此时间后，将触发超时处理。
          */
-        @Min(1)
+        @Min(value = 1, groups = EnabledConfiguration.class)
         private Integer defaultTimeout = 300;
 
         /**
@@ -325,5 +338,21 @@ public class XxlJobProperties {
          * 超时后标记为超时
          */
         TIMEOUT
+    }
+
+    interface EnabledConfiguration {
+    }
+
+    public static class ValidationGroupProvider implements DefaultGroupSequenceProvider<XxlJobProperties> {
+
+        @Override
+        public List<Class<?>> getValidationGroups(XxlJobProperties properties) {
+            List<Class<?>> groups = new ArrayList<>();
+            groups.add(XxlJobProperties.class);
+            if (properties != null && Boolean.TRUE.equals(properties.getEnabled())) {
+                groups.add(EnabledConfiguration.class);
+            }
+            return groups;
+        }
     }
 }

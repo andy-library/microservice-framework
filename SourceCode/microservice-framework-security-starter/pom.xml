@@ -87,15 +87,14 @@
         </dependency>
 
         <!-- ====================================================================
-             Spring Boot Starter OAuth2 Resource Server（可选依赖）
+             Spring Boot Starter OAuth2 Resource Server（强制依赖）
              作用：提供 JWT / Opaque Token 验证能力，配合 Keycloak 使用
-             可选：仅当需要 Keycloak OAuth2 资源服务器模式时引入
+             原因：Security 自动配置公开签名依赖 JwtDecoder，且 Keycloak/JWT 是本 Starter 核心能力
              版本：由 spring-boot-dependencies 管理
              ==================================================================== -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
-            <optional>true</optional>
         </dependency>
 
         <!-- ====================================================================

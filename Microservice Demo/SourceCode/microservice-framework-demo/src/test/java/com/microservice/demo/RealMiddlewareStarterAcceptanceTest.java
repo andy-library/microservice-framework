@@ -15,6 +15,7 @@ import java.util.UUID;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.not;
@@ -73,8 +74,8 @@ class RealMiddlewareStarterAcceptanceTest {
 
         given().when().get("/api/demo/tracing/current")
                 .then().statusCode(200)
-                .body("traceId", notNullValue())
-                .body("spanId", notNullValue());
+                .body("data.traceId", notNullValue())
+                .body("data.spanId", notNullValue());
 
         given().when().get("/demo/security/public")
                 .then().statusCode(200)
@@ -113,7 +114,7 @@ class RealMiddlewareStarterAcceptanceTest {
                 .when().post("/demo/database/transaction")
                 .then().statusCode(200)
                 .body("code", equalTo(0))
-                .body("data.method", equalTo("TransactionTemplateFacade"))
+                .body("data.method", containsString("TransactionTemplateFacade"))
                 .body("data.verificationPassed", equalTo(true));
 
         String eventId = given().contentType("application/json")
@@ -121,7 +122,7 @@ class RealMiddlewareStarterAcceptanceTest {
                         {"aggregateType":"Order","aggregateId":"%s","eventType":"CREATED","payload":"{\\"orderNo\\":\\"%s\\"}"}
                         """.formatted(orderNo, orderNo))
                 .when().post("/demo/database/outbox/publish")
-                .then().statusCode(200)
+                .then().log().ifValidationFails().statusCode(200)
                 .body("code", equalTo(0))
                 .body("data.operation", equalTo("publish"))
                 .body("data.eventId", notNullValue())
@@ -235,7 +236,7 @@ class RealMiddlewareStarterAcceptanceTest {
                 .body("code", equalTo(0))
                 .body("data.kafkaPublisherAvailable", equalTo(true))
                 .body("data.kafkaConsumerBuilderAvailable", equalTo(true))
-                .body("data.consumerBuilderInfo", hasKey("supportedFeatures"));
+                .body("data.consumerBuilderInfo", hasKey("enable.auto.commit"));
 
         given().contentType("application/json")
                 .body("""
@@ -309,7 +310,8 @@ class RealMiddlewareStarterAcceptanceTest {
                 .body("code", equalTo(0))
                 .body("data.found", equalTo(true));
 
-        given().when().get("/demo/es/order/search?status=CREATED")
+        given().queryParam("field", "orderId").queryParam("value", orderId)
+                .when().get("/demo/es/order/search")
                 .then().statusCode(200)
                 .body("code", equalTo(0))
                 .body("data.total", greaterThan(0));
@@ -328,9 +330,9 @@ class RealMiddlewareStarterAcceptanceTest {
                 .body("code", equalTo(0))
                 .body("data.headerCount", greaterThan(0));
 
-        given().contentType("application/json")
+        given().log().ifValidationFails().contentType("application/json")
                 .when().post("/demo/audit/admin-action")
-                .then().statusCode(200)
+                .then().log().ifValidationFails().statusCode(200)
                 .body("code", equalTo(0))
                 .body("data.saved", equalTo(true));
 

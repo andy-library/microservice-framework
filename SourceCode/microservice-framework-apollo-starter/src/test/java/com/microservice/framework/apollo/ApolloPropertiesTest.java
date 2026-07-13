@@ -23,10 +23,10 @@ class ApolloPropertiesTest {
     class DefaultValuesTests {
 
         @Test
-        @DisplayName("默认 enabled 应为 true")
-        void defaultEnabledShouldBeTrue() {
+        @DisplayName("默认 enabled 应为 false")
+        void defaultEnabledShouldBeFalse() {
             ApolloProperties properties = new ApolloProperties();
-            assertThat(properties.isEnabled()).isTrue();
+            assertThat(properties.isEnabled()).isFalse();
         }
 
         @Test

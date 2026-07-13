@@ -40,9 +40,9 @@ public class RequestIdIntegrationTest {
                 .get("/api/demo/request-id")
                 .then()
                 .statusCode(200)
-                .body("requestId", notNullValue())
-                .body("traceId", notNullValue())
-                .body("source", equalTo("TraceId (优先级1)"));
+                .body("data.requestId", notNullValue())
+                .body("data.traceId", notNullValue())
+                .body("data.source", equalTo("TraceId (优先级1)"));
     }
 
     /**
@@ -58,11 +58,11 @@ public class RequestIdIntegrationTest {
                 .get("/api/demo/request-id/gateway-test")
                 .then()
                 .statusCode(200)
-                .body("input_header", equalTo("my-custom-gateway-id"))
-                .body("trace_id", notNullValue())
-                .body("mdc_request_id", notNullValue())
+                .body("data.input_header", equalTo("my-custom-gateway-id"))
+                .body("data.trace_id", notNullValue())
+                .body("data.mdc_request_id", notNullValue())
                 // mdc_request_id 应等于 trace_id，而非 input_header
-                .body("explanation", containsString("TraceId 存在时优先使用"));
+                .body("data.explanation", containsString("TraceId 存在时优先使用"));
     }
 
     /**
@@ -76,12 +76,12 @@ public class RequestIdIntegrationTest {
                 .get("/api/demo/request-id/full-context")
                 .then()
                 .statusCode(200)
-                .body("mdc.traceId", notNullValue())
-                .body("mdc.spanId", notNullValue())
-                .body("mdc.requestId", notNullValue())
-                .body("tracer.traceId", notNullValue())
-                .body("tracer.spanId", notNullValue())
-                .body("tracer.sampled", notNullValue());
+                .body("data.mdc.traceId", notNullValue())
+                .body("data.mdc.spanId", notNullValue())
+                .body("data.mdc.requestId", notNullValue())
+                .body("data.tracer.traceId", notNullValue())
+                .body("data.tracer.spanId", notNullValue())
+                .body("data.tracer.sampled", notNullValue());
     }
 
     /**
@@ -96,10 +96,10 @@ public class RequestIdIntegrationTest {
                 .get("/api/demo/request-id/full-context")
                 .then()
                 .statusCode(200)
-                .body("headers.X-Request-ID", equalTo("test-request-id-123"))
-                .body("mdc.requestId", notNullValue())
+                .body("data.headers.X-Request-ID", equalTo("test-request-id-123"))
+                .body("data.mdc.requestId", notNullValue())
                 // 由于 TraceId 优先，mdc.requestId 不会等于 Header
-                .body("mdc.traceId", notNullValue());
+                .body("data.mdc.traceId", notNullValue());
     }
 
     /**
@@ -113,7 +113,7 @@ public class RequestIdIntegrationTest {
                 .get("/api/demo/request-id")
                 .then()
                 .statusCode(200)
-                .body("requestId", matchesPattern("[a-f0-9]{32}"));
+                .body("data.requestId", matchesPattern("[a-f0-9]{32}"));
     }
 
     /**
@@ -128,7 +128,7 @@ public class RequestIdIntegrationTest {
                 .then()
                 .statusCode(200)
                 .extract()
-                .path("requestId");
+                .path("data.requestId");
 
         String requestId2 = given()
                 .when()
@@ -136,7 +136,7 @@ public class RequestIdIntegrationTest {
                 .then()
                 .statusCode(200)
                 .extract()
-                .path("requestId");
+                .path("data.requestId");
 
         // 两次请求应生成不同的 TraceId/RequestId
         org.junit.jupiter.api.Assertions.assertNotEquals(requestId1, requestId2,

@@ -1,0 +1,8 @@
+package rules
+
+rule "Broken rule"
+when
+    MissingType()
+then
+    definitely not valid
+end

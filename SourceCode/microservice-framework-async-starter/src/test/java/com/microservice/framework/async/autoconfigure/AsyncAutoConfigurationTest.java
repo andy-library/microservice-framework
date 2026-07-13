@@ -10,6 +10,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
@@ -125,5 +128,28 @@ class AsyncAutoConfigurationTest {
                     assertThat(profile.getMaxSize()).isEqualTo(4);
                     assertThat(profile.getThreadNamePrefix()).isEqualTo("custom-");
                 });
+    }
+
+    @Test
+    @DisplayName("Spring 上下文关闭时应关闭内部线程池")
+    void closingSpringContextShouldShutdownManagedExecutor() throws InterruptedException {
+        CountDownLatch started = new CountDownLatch(1);
+        CountDownLatch interrupted = new CountDownLatch(1);
+
+        contextRunner.withPropertyValues("framework.async.shutdown.await-termination=false")
+                .run(context -> {
+                    context.getBean(AsyncTaskExecutor.class).execute(() -> {
+                        started.countDown();
+                        try {
+                            Thread.sleep(TimeUnit.MINUTES.toMillis(1));
+                        } catch (InterruptedException ex) {
+                            interrupted.countDown();
+                            Thread.currentThread().interrupt();
+                        }
+                    });
+                    assertThat(started.await(5, TimeUnit.SECONDS)).isTrue();
+                });
+
+        assertThat(interrupted.await(5, TimeUnit.SECONDS)).isTrue();
     }
 }

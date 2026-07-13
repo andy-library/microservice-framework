@@ -9,12 +9,17 @@ import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.jdbc.core.JdbcTemplate;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.mock;
 
 /**
  * OutboxAutoConfiguration tests.
@@ -92,6 +97,83 @@ class OutboxAutoConfigurationTest {
         }
 
         @Test
+        @DisplayName("claimUnpublished 应以租约原子声明事件并记录重试元数据")
+        void claimUnpublishedShouldAtomicallyLeaseEventsWithRetryMetadata() {
+            contextRunner.withPropertyValues(
+                            "framework.database.outbox.enabled=true",
+                            "framework.database.outbox.auto-create-table=true",
+                            "framework.database.outbox.table-name=test_outbox_event_claim",
+                            "framework.database.outbox.max-fetch-size=10")
+                    .run(context -> {
+                        assertThat(context).hasNotFailed();
+                        OutboxPublisher publisher = context.getBean(OutboxPublisher.class);
+                        JdbcTemplate jdbcTemplate = context.getBean(JdbcTemplate.class);
+                        publisher.publish("Order", "ORDER-1", "CREATED", "{\"orderNo\":\"ORDER-1\"}");
+
+                        List<OutboxPublisher.OutboxEvent> claimed =
+                                publisher.claimUnpublished("publisher-1", Duration.ofMinutes(5));
+
+                        assertThat(claimed).hasSize(1);
+                        OutboxPublisher.OutboxEvent event = claimed.get(0);
+                        assertThat(event.getClaimedBy()).isEqualTo("publisher-1");
+                        assertThat(event.getClaimedUntil()).isAfter(Instant.now());
+                        assertThat(event.getRetryCount()).isEqualTo(1);
+                        assertThat(publisher.claimUnpublished("publisher-2", Duration.ofMinutes(5))).isEmpty();
+
+                        jdbcTemplate.update("""
+                                update test_outbox_event_claim
+                                set claimed_until = ?
+                                where event_id = ?
+                                """, java.sql.Timestamp.from(Instant.now().minusSeconds(1)), event.getEventId());
+
+                        List<OutboxPublisher.OutboxEvent> retried =
+                                publisher.claimUnpublished("publisher-2", Duration.ofMinutes(5));
+                        assertThat(retried).hasSize(1);
+                        assertThat(retried.get(0).getEventId()).isEqualTo(event.getEventId());
+                        assertThat(retried.get(0).getClaimedBy()).isEqualTo("publisher-2");
+                        assertThat(retried.get(0).getRetryCount()).isEqualTo(2);
+                    });
+        }
+
+        @Test
+        @DisplayName("并发 publisher 不应声明同一 outbox 行")
+        void concurrentPublishersShouldNotClaimSameRow() {
+            contextRunner.withPropertyValues(
+                            "framework.database.outbox.enabled=true",
+                            "framework.database.outbox.auto-create-table=true",
+                            "framework.database.outbox.table-name=test_outbox_event_concurrent",
+                            "framework.database.outbox.max-fetch-size=1")
+                    .run(context -> {
+                        assertThat(context).hasNotFailed();
+                        OutboxPublisher publisher = context.getBean(OutboxPublisher.class);
+                        publisher.publish("Order", "ORDER-1", "CREATED", "{}");
+                        publisher.publish("Order", "ORDER-2", "CREATED", "{}");
+
+                        CountDownLatch start = new CountDownLatch(1);
+                        Set<String> claimedIds = ConcurrentHashMap.newKeySet();
+                        try (var executor = Executors.newFixedThreadPool(2)) {
+                            for (int i = 0; i < 2; i++) {
+                                int publisherNumber = i;
+                                executor.submit(() -> {
+                                    try {
+                                        start.await();
+                                        publisher.claimUnpublished("publisher-" + publisherNumber, Duration.ofMinutes(5))
+                                                .forEach(event -> assertThat(claimedIds.add(event.getEventId())).isTrue());
+                                    } catch (InterruptedException e) {
+                                        Thread.currentThread().interrupt();
+                                    }
+                                });
+                            }
+                            start.countDown();
+                            executor.shutdown();
+                            assertThat(executor.awaitTermination(5, TimeUnit.SECONDS)).isTrue();
+                        }
+
+                        assertThat(claimedIds).hasSize(2);
+                    });
+        }
+
+        @Test
         @DisplayName("publish 不允许关键字段为空")
         void publishShouldRejectBlankArguments() {
             contextRunner.withPropertyValues(
@@ -148,7 +230,7 @@ class OutboxAutoConfigurationTest {
             properties.setAutoCreateTable(true);
             properties.setTableName("1bad_table");
             OutboxAutoConfiguration.JdbcOutboxPublisher publisher =
-                    new OutboxAutoConfiguration.JdbcOutboxPublisher(mock(JdbcTemplate.class), properties);
+                    new OutboxAutoConfiguration.JdbcOutboxPublisher(new JdbcTemplate(), properties);
 
             assertThatThrownBy(publisher::afterPropertiesSet)
                     .isInstanceOf(IllegalArgumentException.class)
@@ -174,6 +256,11 @@ class OutboxAutoConfigurationTest {
 
                 @Override
                 public List<OutboxEvent> findUnpublished() {
+                    return List.of(new OutboxEvent("event-1", "A", "1", "E", "{}", false, Instant.now()));
+                }
+
+                @Override
+                public List<OutboxEvent> claimUnpublished(String publisherId, Duration leaseDuration) {
                     return List.of(new OutboxEvent("event-1", "A", "1", "E", "{}", false, Instant.now()));
                 }
             };

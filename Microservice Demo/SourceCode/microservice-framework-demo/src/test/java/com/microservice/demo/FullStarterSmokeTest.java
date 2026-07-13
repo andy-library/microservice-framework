@@ -173,7 +173,7 @@ class FullStarterSmokeTest {
     // ======================================================================
 
     @Autowired
-    private KafkaPublisher<String> kafkaPublisher;
+    private KafkaPublisher<Object> kafkaPublisher;
 
     @Test
     @DisplayName("kafka-starter: KafkaPublisher Bean 存在 (embedded provider)")

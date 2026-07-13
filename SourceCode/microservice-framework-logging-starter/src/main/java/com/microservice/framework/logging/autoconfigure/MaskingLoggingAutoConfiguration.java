@@ -2,16 +2,17 @@ package com.microservice.framework.logging.autoconfigure;
 
 import ch.qos.logback.classic.LoggerContext;
 import com.microservice.framework.logging.core.masking.PatternMaskingConverter;
+import com.microservice.framework.logging.core.masking.MaskingJsonGeneratorDecorator;
 import com.microservice.framework.logging.properties.LoggingProperties;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * 数据脱敏自动配置
@@ -54,6 +55,15 @@ import org.springframework.context.annotation.Configuration;
 @ConditionalOnProperty(prefix = "framework.logging.masking", name = "enabled", havingValue = "true")
 public class MaskingLoggingAutoConfiguration {
 
+    @Bean
+    @ConditionalOnMissingBean
+    public MaskingJsonGeneratorDecorator maskingJsonGeneratorDecorator(
+            PatternMaskingConverter patternMaskingConverter) {
+        MaskingJsonGeneratorDecorator decorator = new MaskingJsonGeneratorDecorator();
+        decorator.setMaskingFunction(patternMaskingConverter::mask);
+        return decorator;
+    }
+
     /**
      * 增强配置（支持 Spring Cloud 动态刷新）
      * 
@@ -68,36 +78,10 @@ public class MaskingLoggingAutoConfiguration {
      * <li>配置变更无需重启应用</li>
      * </ul>
      */
-    @Configuration(proxyBeanMethods = false)
-    @ConditionalOnClass(name = "org.springframework.cloud.context.config.annotation.RefreshScope")
-    static class RefreshableMaskingConfiguration {
-
-        @Bean
-        @org.springframework.cloud.context.config.annotation.RefreshScope
-        public PatternMaskingConverter patternMaskingConverter(LoggingProperties properties) {
-            return createConverter(properties);
-        }
-    }
-
-    /**
-     * 基础配置（无 Spring Cloud）
-     * 
-     * <p>
-     * 条件：当 {@link PatternMaskingConverter} Bean 不存在时生效。
-     * 由于增强配置优先级更高（先声明），此配置仅在 Spring Cloud 不可用时激活。
-     * 
-     * <p>
-     * 功能与增强配置完全相同，仅缺少动态刷新能力。
-     */
-    @Configuration(proxyBeanMethods = false)
-    @ConditionalOnMissingClass("org.springframework.cloud.context.config.annotation.RefreshScope")
+    @Bean
     @ConditionalOnMissingBean(PatternMaskingConverter.class)
-    static class BaseMaskingConfiguration {
-
-        @Bean
-        public PatternMaskingConverter patternMaskingConverter(LoggingProperties properties) {
-            return createConverter(properties);
-        }
+    public PatternMaskingConverter patternMaskingConverter(LoggingProperties properties) {
+        return createConverter(properties);
     }
 
     /**
@@ -118,6 +102,12 @@ public class MaskingLoggingAutoConfiguration {
 
         // 设置启用的脱敏规则（支持按需启用部分规则）
         converter.setEnabledRules(masking.getEnabledDefaultRules());
+        List<MaskingJsonGeneratorDecorator.CustomRule> customRules = new ArrayList<>();
+        for (LoggingProperties.CustomMaskingRule rule : masking.getCustomRules()) {
+            customRules.add(new MaskingJsonGeneratorDecorator.CustomRule(
+                    rule.getName(), rule.getRegex(), rule.getMask()));
+        }
+        converter.setCustomRules(customRules);
 
         // 将转换器注册到 Logback 上下文
         // 这样 logback-spring.xml 中可以通过 %maskedMessage 引用此转换器

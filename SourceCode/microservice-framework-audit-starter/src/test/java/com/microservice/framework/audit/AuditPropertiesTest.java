@@ -22,7 +22,7 @@ class AuditPropertiesTest {
         AuditProperties.StorageProperties storage = properties.getStorage();
 
         assertThat(storage.getType()).isEqualTo("MEMORY");
-        assertThat(storage.getAsync()).isTrue();
+        assertThat(storage.getAsync()).isFalse();
     }
 
     @Test
@@ -41,7 +41,8 @@ class AuditPropertiesTest {
         AuditProperties.SecurityProperties security = properties.getSecurity();
 
         assertThat(security.getChecksumEnabled()).isTrue();
-        assertThat(security.getChecksumAlgorithm()).isEqualTo("SHA-256");
+        assertThat(security.getChecksumAlgorithm()).isEqualTo("HmacSHA256");
+        assertThat(security.getTamperEvidenceKey()).isNull();
     }
 
     @Test
@@ -67,9 +68,11 @@ class AuditPropertiesTest {
         assertThat(properties.getRetention().getDays()).isEqualTo(180);
 
         properties.getSecurity().setChecksumEnabled(false);
-        properties.getSecurity().setChecksumAlgorithm("SHA-512");
+        properties.getSecurity().setChecksumAlgorithm("HmacSHA512");
+        properties.getSecurity().setTamperEvidenceKey("external-secret");
         assertThat(properties.getSecurity().getChecksumEnabled()).isFalse();
-        assertThat(properties.getSecurity().getChecksumAlgorithm()).isEqualTo("SHA-512");
+        assertThat(properties.getSecurity().getChecksumAlgorithm()).isEqualTo("HmacSHA512");
+        assertThat(properties.getSecurity().getTamperEvidenceKey()).isEqualTo("external-secret");
 
         properties.getBside().setMandatory(false);
         assertThat(properties.getBside().getMandatory()).isFalse();

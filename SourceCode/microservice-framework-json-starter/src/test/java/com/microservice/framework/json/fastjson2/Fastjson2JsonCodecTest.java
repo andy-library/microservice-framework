@@ -5,6 +5,8 @@ import com.microservice.framework.json.api.JsonCodecException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.io.ByteArrayInputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -36,6 +38,20 @@ class Fastjson2JsonCodecTest {
         assertThatThrownBy(() -> codec.deserializeList("[{\"nested\":{\"value\":\"x\"}}]", OrderValue.class))
                 .isInstanceOf(JsonCodecException.class)
                 .hasMessageContaining("nesting depth");
+    }
+
+    @Test
+    @DisplayName("deserializeFromStream should enforce max payload size")
+    void deserializeFromStreamShouldEnforceMaxPayloadSize() {
+        JsonProperties properties = new JsonProperties();
+        properties.setMaxPayloadSize(10);
+        Fastjson2JsonCodec codec = new Fastjson2JsonCodec(properties);
+        ByteArrayInputStream input = new ByteArrayInputStream(
+                "{\"id\":\"payload-exceeds-limit\"}".getBytes(StandardCharsets.UTF_8));
+
+        assertThatThrownBy(() -> codec.deserializeFromStream(input, OrderValue.class))
+                .isInstanceOf(JsonCodecException.class)
+                .hasMessageContaining("payload size");
     }
 
     public static class OrderValue {

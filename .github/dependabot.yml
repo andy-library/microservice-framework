@@ -1,0 +1,29 @@
+version: 2
+
+updates:
+  - package-ecosystem: maven
+    directory: /SourceCode/microservice-framework-parent
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - java
+
+  - package-ecosystem: maven
+    directory: /Microservice Demo/SourceCode/microservice-framework-demo
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3
+    labels:
+      - dependencies
+      - demo
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3
+    labels:
+      - dependencies
+      - github-actions

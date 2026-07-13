@@ -12,6 +12,8 @@ import io.micrometer.tracing.Span;
 import io.micrometer.tracing.SpanCustomizer;
 import io.micrometer.tracing.TraceContext;
 import io.micrometer.tracing.Tracer;
+import org.springframework.boot.autoconfigure.AutoConfigurations;
+import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -87,55 +89,74 @@ class MdcAutoConfigurationTest {
     }
 
     @Test
-    @DisplayName("TracingMdcFilter: 请求结束后恢复已有 MDC 值")
-    void tracingMdcFilterShouldRestorePreviousMdcValues() throws Exception {
-        MDC.put("traceId", "previous-trace");
-        MDC.put("spanId", "previous-span");
-        MDC.put("requestId", "previous-request");
-
-        FakeTracer tracer = new FakeTracer(new FakeSpan("current-trace", "current-span"));
-        MdcAutoConfiguration.TracingMdcFilter filter = new MdcAutoConfiguration.TracingMdcFilter(tracer);
-
-        filter.doFilter(null, null, (request, response) -> {
-            assertEquals("current-trace", MDC.get("traceId"));
-            assertEquals("current-span", MDC.get("spanId"));
-            assertEquals("current-trace", MDC.get("requestId"));
-        });
-
-        assertEquals("previous-trace", MDC.get("traceId"));
-        assertEquals("previous-span", MDC.get("spanId"));
-        assertEquals("previous-request", MDC.get("requestId"));
-    }
-
-    @Test
-    @DisplayName("MdcTracingObservationHandler: scope 关闭后恢复已有 MDC 值")
-    void observationHandlerShouldRestorePreviousMdcValues() {
-        MDC.put("traceId", "previous-trace");
-        MDC.put("spanId", "previous-span");
-        MDC.put("requestId", "previous-request");
-
+    @DisplayName("MdcTracingObservationHandler: 嵌套 Observation 必须恢复父 MDC 并保留 requestId")
+    void observationHandlerShouldRestoreParentMdcValues() {
         FakeTracer tracer = new FakeTracer(new FakeSpan("current-trace", "current-span"));
         MdcAutoConfiguration.MdcTracingObservationHandler handler =
                 new MdcAutoConfiguration.MdcTracingObservationHandler(tracer);
+        io.micrometer.observation.Observation.Context outerContext =
+                new io.micrometer.observation.Observation.Context();
+
+        MDC.put("requestId", "request-123");
+        MDC.put("traceId", "parent-trace");
+        MDC.put("spanId", "parent-span");
+        handler.onStart(outerContext);
+        assertEquals("current-trace", MDC.get("traceId"));
+        assertEquals("current-span", MDC.get("spanId"));
+        assertEquals("request-123", MDC.get("requestId"));
+
+        tracer.setCurrentSpan(new FakeSpan("child-trace", "child-span"));
+        io.micrometer.observation.Observation.Context innerContext =
+                new io.micrometer.observation.Observation.Context();
+        handler.onStart(innerContext);
+        handler.onStop(innerContext);
+
+        assertEquals("current-trace", MDC.get("traceId"));
+        assertEquals("current-span", MDC.get("spanId"));
+        assertEquals("request-123", MDC.get("requestId"));
+
+        handler.onStop(outerContext);
+        assertEquals("parent-trace", MDC.get("traceId"));
+        assertEquals("parent-span", MDC.get("spanId"));
+        assertEquals("request-123", MDC.get("requestId"));
+    }
+
+    @Test
+    @DisplayName("MdcTracingObservationHandler: 空 MDC 和无当前 Span 时不得写入 null")
+    void observationHandlerShouldSupportMissingMdcAndSpan() {
+        MdcAutoConfiguration.MdcTracingObservationHandler handler =
+                new MdcAutoConfiguration.MdcTracingObservationHandler(new FakeTracer(null));
         io.micrometer.observation.Observation.Context context =
                 new io.micrometer.observation.Observation.Context();
 
-        handler.onScopeOpened(context);
-        assertEquals("current-trace", MDC.get("traceId"));
-        assertEquals("current-span", MDC.get("spanId"));
-        assertEquals("current-trace", MDC.get("requestId"));
+        assertDoesNotThrow(() -> handler.onStart(context));
+        assertDoesNotThrow(() -> handler.onStop(context));
+        assertNull(MDC.get("traceId"));
+        assertNull(MDC.get("spanId"));
+        assertNull(MDC.get("requestId"));
+    }
 
-        handler.onScopeClosed(context);
-        assertEquals("previous-trace", MDC.get("traceId"));
-        assertEquals("previous-span", MDC.get("spanId"));
-        assertEquals("previous-request", MDC.get("requestId"));
+    @Test
+    @DisplayName("只有 Tracer 而没有 Propagator 时应跳过 MDC 初始化")
+    void tracerWithoutPropagatorShouldNotBreakApplicationStartup() {
+        new ApplicationContextRunner()
+                .withConfiguration(AutoConfigurations.of(MdcAutoConfiguration.class))
+                .withBean(Tracer.class, () -> new FakeTracer(null))
+                .run(context -> {
+                    assertDoesNotThrow(() -> assertTrue(context.isRunning()));
+                    assertFalse(context.containsBean("observabilityUtilsInitializer"));
+                });
     }
 
     static class FakeTracer implements Tracer {
 
-        private final Span currentSpan;
+        private Span currentSpan;
 
         FakeTracer(Span currentSpan) {
+            this.currentSpan = currentSpan;
+        }
+
+        void setCurrentSpan(Span currentSpan) {
             this.currentSpan = currentSpan;
         }
 

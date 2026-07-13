@@ -1,6 +1,9 @@
 package com.microservice.demo.embedded;
 
 import com.microservice.framework.kafka.api.KafkaPublisher;
+import com.microservice.framework.kafka.api.KafkaMessageConsumer;
+import com.microservice.framework.kafka.api.KafkaConsumerResult;
+import org.apache.kafka.clients.producer.RecordMetadata;
 
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -10,6 +13,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.Optional;
 
 /**
  * Embedded Kafka Configuration
@@ -33,8 +37,28 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 public class EmbeddedKafkaConfiguration {
 
     @Bean
-    public KafkaPublisher<String> inMemoryKafkaPublisher() {
+    public InMemoryKafkaPublisher<Object> inMemoryKafkaPublisher() {
         return new InMemoryKafkaPublisher<>();
+    }
+
+    @Bean
+    public KafkaMessageConsumer inMemoryKafkaMessageConsumer(InMemoryKafkaPublisher<Object> publisher) {
+        return new KafkaMessageConsumer() {
+            @Override
+            public Optional<KafkaConsumerResult> pollOne(String topic, String groupId) {
+                return publisher.poll(topic).map(message -> new KafkaConsumerResult(
+                        message.topic, 0, message.timestampMs, message.key, message.data, message.timestampMs));
+            }
+
+            @Override
+            public CompletableFuture<RecordMetadata> publishToDeadLetter(
+                    String topic, Object key, Object value, String reason) {
+                return publisher.publishToTopic(deadLetterTopic(topic), value);
+            }
+
+            @Override
+            public String deadLetterTopic(String topic) { return topic + ".DLT"; }
+        };
     }
 
     /**
@@ -89,6 +113,15 @@ public class EmbeddedKafkaConfiguration {
          */
         public void clearMessages() {
             messageQueue.clear();
+        }
+
+        Optional<PublishedMessage<T>> poll(String topic) {
+            for (PublishedMessage<T> message : messageQueue) {
+                if (topic.equals(message.topic) && messageQueue.remove(message)) {
+                    return Optional.of(message);
+                }
+            }
+            return Optional.empty();
         }
 
         // ======================================================================

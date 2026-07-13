@@ -17,7 +17,7 @@ import java.util.Locale;
  */
 @AutoConfiguration
 @EnableConfigurationProperties({NacosProperties.class, ConfigGovernanceProperties.class})
-@ConditionalOnProperty(prefix = "framework.nacos", name = "enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(prefix = "framework.nacos", name = "enabled", havingValue = "true")
 public class NacosProductionSafetyAutoConfiguration {
 
     private static final long PROD_MAX_TIMEOUT_MS = 5000L;

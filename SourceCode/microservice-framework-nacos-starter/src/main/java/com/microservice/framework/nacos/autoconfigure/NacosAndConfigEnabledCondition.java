@@ -17,7 +17,7 @@ class NacosAndConfigEnabledCondition extends AllNestedConditions {
         super(ConfigurationPhase.PARSE_CONFIGURATION);
     }
 
-    @ConditionalOnProperty(prefix = "framework.nacos", name = "enabled", havingValue = "true", matchIfMissing = true)
+    @ConditionalOnProperty(prefix = "framework.nacos", name = "enabled", havingValue = "true")
     static class NacosEnabled {}
 
     @ConditionalOnProperty(prefix = "framework.config", name = "enabled", havingValue = "true", matchIfMissing = true)

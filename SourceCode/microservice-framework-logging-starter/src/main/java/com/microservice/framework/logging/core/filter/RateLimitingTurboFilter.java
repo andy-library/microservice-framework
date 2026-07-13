@@ -7,6 +7,7 @@ import ch.qos.logback.core.spi.FilterReply;
 import org.slf4j.Marker;
 
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.LongSupplier;
 
 /**
  * 日志限流 TurboFilter
@@ -41,6 +42,25 @@ public class RateLimitingTurboFilter extends TurboFilter {
      */
     private volatile boolean enabled = true;
 
+    private final LongSupplier nanoTimeSource;
+
+    public RateLimitingTurboFilter() {
+        this(System::nanoTime);
+    }
+
+    RateLimitingTurboFilter(LongSupplier nanoTimeSource) {
+        this.nanoTimeSource = nanoTimeSource;
+        this.lastRefillTimestamp = nanoTimeSource.getAsLong();
+        this.tokens.set(burstCapacity);
+    }
+
+    @Override
+    public void start() {
+        lastRefillTimestamp = nanoTimeSource.getAsLong();
+        tokens.set(burstCapacity);
+        super.start();
+    }
+
     @Override
     public FilterReply decide(Marker marker, Logger logger, Level level, String format, Object[] params, Throwable t) {
         if (!enabled) {
@@ -62,7 +82,7 @@ public class RateLimitingTurboFilter extends TurboFilter {
      * 补充令牌（令牌桶算法）
      */
     private void refillTokens() {
-        long now = System.nanoTime();
+        long now = nanoTimeSource.getAsLong();
         long lastRefill = lastRefillTimestamp;
 
         // 计算时间差（秒）
@@ -121,11 +141,8 @@ public class RateLimitingTurboFilter extends TurboFilter {
 
     public void setBurstCapacity(int burstCapacity) {
         this.burstCapacity = burstCapacity;
-        // 重置令牌数量，避免超过新的容量
-        long currentTokens = tokens.get();
-        if (currentTokens > burstCapacity) {
-            tokens.set(burstCapacity);
-        }
+        // 配置刷新后按新容量重新建立桶，确保首波容量与声明配置一致。
+        tokens.set(burstCapacity);
     }
 
     public boolean isEnabled() {

@@ -1,7 +1,9 @@
 package com.microservice.framework.web.autoconfigure;
 
+import com.microservice.framework.common.context.ThreadLocalContextAdapter;
 import com.microservice.framework.web.WebProperties;
 import com.microservice.framework.web.context.RequestIdFilter;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -28,7 +30,11 @@ public class RequestIdAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public RequestIdFilter requestIdFilter(WebProperties properties) {
-        return new RequestIdFilter(properties.getRequestId());
+    public RequestIdFilter requestIdFilter(
+            WebProperties properties,
+            ObjectProvider<ThreadLocalContextAdapter> contextAdapter) {
+        return new RequestIdFilter(
+                properties.getRequestId(),
+                contextAdapter.getIfAvailable(ThreadLocalContextAdapter::new));
     }
 }

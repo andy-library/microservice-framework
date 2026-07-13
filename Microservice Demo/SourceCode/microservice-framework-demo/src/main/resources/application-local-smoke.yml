@@ -2,15 +2,15 @@
 # Local Smoke Profile
 # ============================================================================
 # Quick-start profile for local development without any middleware.
-# Redis, Kafka, Elasticsearch are disabled/excluded; all demo endpoints
-# return 503 "not available" responses for middleware-dependent features.
+# Redis, Kafka, Elasticsearch are disabled/excluded; object storage and Drools
+# use explicit embedded dev/test providers where external services are absent.
 # H2 database provides embedded persistence.
 #
 # This profile preserves the current default behavior:
 # - Redis/Kafka/ES auto-configs are excluded
 # - Redis and Drools starters are disabled
-# - ObjectStorage is enabled but falls back to 503 (no S3/MinIO client)
-# - Controllers use @Autowired(required=false) and return 503 when beans are null
+# - ObjectStorage uses the embedded ObjectStorageOperations provider
+# - Drools uses the embedded RuleEngine provider
 #
 # Activate with: --spring.profiles.active=local-smoke
 # ============================================================================
@@ -168,16 +168,18 @@ framework:
       name: AES/GCM/NoPadding
       key-size: 256
 
-  # Object Storage Starter — enabled but 503 (no S3/MinIO client on classpath)
+  # Object Storage Starter — embedded provider (no S3/MinIO client required)
   object-storage:
     enabled: true
+    provider: embedded
     connection:
       bucket: demo-bucket
 
-  # Drools Starter — DISABLED (no rule engine runtime)
+  # Drools Starter — embedded provider (no external Drools runtime required)
   drools:
+    provider: embedded
     rule:
-      enabled: false
+      enabled: true
 
   # Config Center — disabled; ConfigGovernanceAutoConfiguration is now gated
   # by both framework.nacos.enabled AND framework.config.enabled (or apollo + config)
@@ -245,4 +247,5 @@ info:
       - microservice-framework-kafka-starter (excluded)
       - microservice-framework-audit-starter
       - microservice-framework-field-encryption-starter
-      - microservice-framework-object-storage-starter (503)
+      - microservice-framework-object-storage-starter (embedded)
+      - microservice-framework-drools-starter (embedded)

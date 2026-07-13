@@ -1,5 +1,6 @@
 package com.microservice.demo.controller;
 
+import com.microservice.framework.json.api.JsonCodec;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -9,4 +10,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/test/json")
 public class JsonTestController extends JsonDemoController {
+
+    public JsonTestController(JsonCodec jsonCodec) {
+        super(jsonCodec);
+    }
 }

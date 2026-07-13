@@ -8,6 +8,7 @@ import io.micrometer.tracing.propagation.Propagator;
 import org.slf4j.MDC;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -19,6 +20,7 @@ import org.springframework.context.annotation.Configuration;
  */
 @AutoConfiguration
 @ConditionalOnClass({ Tracer.class, MDC.class })
+@ConditionalOnBean({ Tracer.class, Propagator.class })
 public class MdcAutoConfiguration {
 
     /**
@@ -36,6 +38,7 @@ public class MdcAutoConfiguration {
      * 通过 Micrometer 的 ObservationHandler 自动注入 MDC
      */
     @Configuration(proxyBeanMethods = false)
+    @ConditionalOnBean({ Tracer.class, Propagator.class })
     static class MdcObservationConfiguration {
 
         @Bean
@@ -56,6 +59,11 @@ public class MdcAutoConfiguration {
     static class MdcTracingObservationHandler
             implements io.micrometer.observation.ObservationHandler<io.micrometer.observation.Observation.Context> {
 
+        private static final String PREVIOUS_TRACE_ID = MdcTracingObservationHandler.class.getName() + ".previousTraceId";
+        private static final String PREVIOUS_SPAN_ID = MdcTracingObservationHandler.class.getName() + ".previousSpanId";
+        private static final String PREVIOUS_REQUEST_ID = MdcTracingObservationHandler.class.getName() + ".previousRequestId";
+        private static final Object ABSENT_MDC_VALUE = new Object();
+
         private final Tracer tracer;
 
         MdcTracingObservationHandler(Tracer tracer) {
@@ -64,6 +72,10 @@ public class MdcAutoConfiguration {
 
         @Override
         public void onStart(io.micrometer.observation.Observation.Context context) {
+            context.put(PREVIOUS_TRACE_ID, previousValue(MdcKeys.TRACE_ID));
+            context.put(PREVIOUS_SPAN_ID, previousValue(MdcKeys.SPAN_ID));
+            context.put(PREVIOUS_REQUEST_ID, previousValue(MdcKeys.REQUEST_ID));
+
             Span currentSpan = tracer.currentSpan();
             if (currentSpan != null) {
                 MDC.put(MdcKeys.TRACE_ID, currentSpan.context().traceId());
@@ -73,8 +85,22 @@ public class MdcAutoConfiguration {
 
         @Override
         public void onStop(io.micrometer.observation.Observation.Context context) {
-            MDC.remove(MdcKeys.TRACE_ID);
-            MDC.remove(MdcKeys.SPAN_ID);
+            restore(MdcKeys.TRACE_ID, context.get(PREVIOUS_TRACE_ID));
+            restore(MdcKeys.SPAN_ID, context.get(PREVIOUS_SPAN_ID));
+            restore(MdcKeys.REQUEST_ID, context.get(PREVIOUS_REQUEST_ID));
+        }
+
+        private void restore(String key, Object value) {
+            if (value == null || value == ABSENT_MDC_VALUE) {
+                MDC.remove(key);
+                return;
+            }
+            MDC.put(key, value.toString());
+        }
+
+        private Object previousValue(String key) {
+            String value = MDC.get(key);
+            return value == null ? ABSENT_MDC_VALUE : value;
         }
 
         @Override

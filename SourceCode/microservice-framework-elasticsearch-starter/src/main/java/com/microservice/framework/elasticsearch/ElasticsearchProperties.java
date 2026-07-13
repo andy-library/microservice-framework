@@ -31,6 +31,9 @@ public class ElasticsearchProperties {
     /** 是否启用 Elasticsearch Starter，默认 {@code true}。 */
     private boolean enabled = true;
 
+    /** 启动期是否要求 ElasticsearchTemplate 必须可用，默认 {@code false}。 */
+    private boolean failFastClient = false;
+
     /** 连接配置。 */
     @NestedConfigurationProperty
     private ConnectionProperties connection = new ConnectionProperties();
@@ -53,6 +56,14 @@ public class ElasticsearchProperties {
 
     public void setEnabled(boolean enabled) {
         this.enabled = enabled;
+    }
+
+    public boolean isFailFastClient() {
+        return failFastClient;
+    }
+
+    public void setFailFastClient(boolean failFastClient) {
+        this.failFastClient = failFastClient;
     }
 
     public ConnectionProperties getConnection() {

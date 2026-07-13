@@ -131,7 +131,8 @@ framework:
 
   # Redis Configuration (conditional, disabled when no Redis available)
   redis:
-    enabled: false
+    enabled: true
+    provider: embedded
     cache:
       enabled: true
       default-ttl: 3600
@@ -149,6 +150,11 @@ framework:
     transaction:
       default-timeout: 30
       default-isolation: READ_COMMITTED
+    outbox:
+      enabled: true
+      auto-create-table: true
+      table-name: demo_outbox_event
+      max-fetch-size: 100
 
   # Audit Configuration
   audit:
@@ -163,16 +169,22 @@ framework:
       name: AES/GCM/NoPadding
       key-size: 256
 
-  # Object Storage Configuration (mock for demo)
+  # Object Storage Configuration (embedded dev/test provider; no external S3/MinIO required)
   object-storage:
     enabled: true
+    provider: embedded
     connection:
       bucket: demo-bucket
 
-  # Drools Configuration (optional)
+  # Drools Configuration (embedded dev/test provider; no external rule runtime required)
   drools:
+    provider: embedded
     rule:
-      enabled: false  # demo 默认不启用 Drools 规则引擎
+      enabled: true
+
+  xxl-job:
+    enabled: true
+    provider: embedded
 
   # Config Center — disabled by default; ConfigGovernanceAutoConfiguration is now gated
   # by both framework.nacos.enabled AND framework.config.enabled (or apollo + config),

@@ -35,14 +35,14 @@ class TraceSampledFilterTest {
 
     @BeforeEach
     void setUp() {
-        filter = new TraceSampledFilter();
         fakeTracer = new FakeTracer();
+        filter = new TraceSampledFilter(fakeTracer);
     }
 
     @Test
     @DisplayName("decide: tracer 为 null 时返回 NEUTRAL")
     void testDecide_TracerNull() {
-        filter.setTracer(null);
+        filter = new TraceSampledFilter(null);
 
         FilterReply reply = filter.decide(null, null, Level.INFO, "test", null, null);
 
@@ -52,7 +52,6 @@ class TraceSampledFilterTest {
     @Test
     @DisplayName("decide: currentSpan 为 null 时返回 NEUTRAL")
     void testDecide_CurrentSpanNull() {
-        filter.setTracer(fakeTracer);
         fakeTracer.setCurrentSpan(null);
 
         FilterReply reply = filter.decide(null, null, Level.INFO, "test", null, null);
@@ -64,7 +63,6 @@ class TraceSampledFilterTest {
     @Test
     @DisplayName("decide: sampled span 返回 NEUTRAL")
     void testDecide_SampledSpan() {
-        filter.setTracer(fakeTracer);
         fakeTracer.setCurrentSpan(new FakeSpan(true));
 
         FilterReply reply = filter.decide(null, null, Level.INFO, "test", null, null);
@@ -75,7 +73,6 @@ class TraceSampledFilterTest {
     @Test
     @DisplayName("decide: non-sampled span 的阈值级别返回 NEUTRAL")
     void testDecide_NonSampledSpanAtThreshold() {
-        filter.setTracer(fakeTracer);
         fakeTracer.setCurrentSpan(new FakeSpan(false));
 
         FilterReply reply = filter.decide(null, null, Level.INFO, "test", null, null);
@@ -86,7 +83,6 @@ class TraceSampledFilterTest {
     @Test
     @DisplayName("decide: non-sampled span 低于阈值返回 DENY")
     void testDecide_NonSampledSpanBelowThreshold() {
-        filter.setTracer(fakeTracer);
         fakeTracer.setCurrentSpan(new FakeSpan(false));
 
         FilterReply reply = filter.decide(null, null, Level.DEBUG, "test", null, null);
@@ -97,7 +93,6 @@ class TraceSampledFilterTest {
     @Test
     @DisplayName("decide: non-sampled span 高于阈值返回 NEUTRAL")
     void testDecide_NonSampledSpanAboveThreshold() {
-        filter.setTracer(fakeTracer);
         fakeTracer.setCurrentSpan(new FakeSpan(false));
 
         FilterReply reply = filter.decide(null, null, Level.WARN, "test", null, null);
@@ -109,7 +104,6 @@ class TraceSampledFilterTest {
     @DisplayName("decide: 禁用过滤器时返回 NEUTRAL 且不访问 tracer")
     void testDecide_Disabled() {
         filter.setEnabled(false);
-        filter.setTracer(fakeTracer);
 
         FilterReply reply = filter.decide(null, null, Level.DEBUG, "test", null, null);
 
@@ -120,7 +114,6 @@ class TraceSampledFilterTest {
     @Test
     @DisplayName("decide: 自定义未采样阈值生效")
     void testDecide_CustomUnsampledThreshold() {
-        filter.setTracer(fakeTracer);
         filter.setLevelForUnsampled("WARN");
         fakeTracer.setCurrentSpan(new FakeSpan(false));
 
@@ -131,9 +124,8 @@ class TraceSampledFilterTest {
     }
 
     @Test
-    @DisplayName("setTracer: 设置 tracer 成功")
-    void testSetTracer() {
-        filter.setTracer(fakeTracer);
+    @DisplayName("构造器注入 tracer 成功")
+    void testConstructorTracer() {
         fakeTracer.setCurrentSpan(null);
 
         FilterReply reply = filter.decide(null, null, Level.INFO, "test", null, null);

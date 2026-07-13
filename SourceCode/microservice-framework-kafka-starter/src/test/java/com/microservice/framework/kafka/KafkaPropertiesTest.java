@@ -35,6 +35,7 @@ class KafkaPropertiesTest {
 
         assertThat(consumer.getAutoCommit()).isFalse();
         assertThat(consumer.getConcurrency()).isEqualTo(3);
+        assertThat(consumer.getPollTimeoutMs()).isEqualTo(10000L);
         assertThat(consumer.getAutoCommitIntervalMs()).isEqualTo(1000);
     }
 

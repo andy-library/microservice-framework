@@ -39,7 +39,7 @@ public class ConfigGovernanceAutoConfiguration {
     @ConditionalOnProperty(prefix = "framework.config.validator", name = "enabled", havingValue = "true", matchIfMissing = true)
     static class ValidatorConfiguration {
 
-        @Bean
+        @Bean(name = "nacosConfigValidator")
         @ConditionalOnMissingBean
         ConfigValidator defaultConfigValidator() {
             return ConfigValidator.required();
@@ -56,7 +56,7 @@ public class ConfigGovernanceAutoConfiguration {
     @ConditionalOnProperty(prefix = "framework.config.refresh-policy", name = "enabled", havingValue = "true", matchIfMissing = true)
     static class RefreshPolicyConfiguration {
 
-        @Bean
+        @Bean(name = "nacosRefreshPolicy")
         @ConditionalOnMissingBean
         RefreshPolicy defaultRefreshPolicy(ConfigGovernanceProperties properties) {
             ConfigGovernanceProperties.RefreshPolicyProperties rp = properties.getRefreshPolicy();
@@ -76,7 +76,7 @@ public class ConfigGovernanceAutoConfiguration {
     @ConditionalOnProperty(prefix = "framework.config.masking", name = "enabled", havingValue = "true", matchIfMissing = true)
     static class MaskingConfiguration {
 
-        @Bean
+        @Bean(name = "nacosSensitiveConfigMasker")
         @ConditionalOnMissingBean
         SensitiveConfigMasker defaultSensitiveConfigMasker(ConfigGovernanceProperties properties) {
             ConfigGovernanceProperties.MaskingProperties mp = properties.getMasking();

@@ -19,7 +19,7 @@ public class ApolloProperties {
     /**
      * 是否启用 Apollo 配置中心集成，默认 true
      */
-    private boolean enabled = true;
+    private boolean enabled = false;
 
     /**
      * Apollo AppId，应用唯一标识

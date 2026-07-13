@@ -39,6 +39,12 @@ public class FeignProperties {
     private CircuitBreakerProperties circuitBreaker = new CircuitBreakerProperties();
 
     /**
+     * 隔离配置
+     */
+    @NestedConfigurationProperty
+    private IsolationProperties isolation = new IsolationProperties();
+
+    /**
      * 上下文传播配置
      */
     @NestedConfigurationProperty
@@ -74,6 +80,14 @@ public class FeignProperties {
 
     public void setCircuitBreaker(CircuitBreakerProperties circuitBreaker) {
         this.circuitBreaker = circuitBreaker;
+    }
+
+    public IsolationProperties getIsolation() {
+        return isolation;
+    }
+
+    public void setIsolation(IsolationProperties isolation) {
+        this.isolation = isolation;
     }
 
     public ContextProperties getContext() {
@@ -118,6 +132,12 @@ public class FeignProperties {
          */
         private int readTimeout = 5000;
 
+        private int maxConnections = 100;
+
+        private int maxConnectionsPerRoute = 20;
+
+        private long connectionTimeToLive = 30000;
+
         // Getters and Setters
 
         public int getTimeout() {
@@ -143,6 +163,13 @@ public class FeignProperties {
         public void setReadTimeout(int readTimeout) {
             this.readTimeout = readTimeout;
         }
+
+        public int getMaxConnections() { return maxConnections; }
+        public void setMaxConnections(int maxConnections) { this.maxConnections = maxConnections; }
+        public int getMaxConnectionsPerRoute() { return maxConnectionsPerRoute; }
+        public void setMaxConnectionsPerRoute(int maxConnectionsPerRoute) { this.maxConnectionsPerRoute = maxConnectionsPerRoute; }
+        public long getConnectionTimeToLive() { return connectionTimeToLive; }
+        public void setConnectionTimeToLive(long connectionTimeToLive) { this.connectionTimeToLive = connectionTimeToLive; }
     }
 
     /**
@@ -174,6 +201,12 @@ public class FeignProperties {
          * 触发重试的异常类名，默认为空
          */
         private List<String> retryOnExceptions = new ArrayList<>();
+
+        /**
+         * 允许重试的幂等 HTTP 方法
+         */
+        private Set<String> idempotentMethods = new HashSet<>(Arrays.asList(
+                "GET", "HEAD", "PUT", "DELETE", "OPTIONS", "TRACE"));
 
         // Getters and Setters
 
@@ -215,6 +248,14 @@ public class FeignProperties {
 
         public void setRetryOnExceptions(List<String> retryOnExceptions) {
             this.retryOnExceptions = retryOnExceptions;
+        }
+
+        public Set<String> getIdempotentMethods() {
+            return idempotentMethods;
+        }
+
+        public void setIdempotentMethods(Set<String> idempotentMethods) {
+            this.idempotentMethods = idempotentMethods;
         }
     }
 
@@ -320,6 +361,25 @@ public class FeignProperties {
 
         public void setPropagateKeys(Set<String> propagateKeys) {
             this.propagateKeys = propagateKeys;
+        }
+    }
+
+    /**
+     * 隔离配置
+     */
+    public static class IsolationProperties {
+
+        /**
+         * 是否启用隔离，默认 false
+         */
+        private boolean enabled = false;
+
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
         }
     }
 

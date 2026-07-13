@@ -6,6 +6,7 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ScanOptions;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
@@ -43,6 +44,7 @@ public class RedisCacheImpl implements RedisCache {
 
     @Override
     public <T> T get(String key) {
+        requireKey(key);
         String cacheKey = CACHE_PREFIX + key;
         Object value = redisTemplate.opsForValue().get(cacheKey);
         if (value == null) {
@@ -56,6 +58,8 @@ public class RedisCacheImpl implements RedisCache {
 
     @Override
     public <T> T get(String key, Class<T> type) {
+        requireKey(key);
+        Objects.requireNonNull(type, "type must not be null");
         String cacheKey = CACHE_PREFIX + key;
         Object value = redisTemplate.opsForValue().get(cacheKey);
         if (value == null) {
@@ -67,7 +71,8 @@ public class RedisCacheImpl implements RedisCache {
         if (type.isInstance(value)) {
             return type.cast(value);
         }
-        return (T) value;
+        throw new IllegalStateException("Cached value type mismatch: expected " + type.getName()
+                + " but was " + value.getClass().getName());
     }
 
     @Override
@@ -77,6 +82,10 @@ public class RedisCacheImpl implements RedisCache {
 
     @Override
     public void put(String key, Object value, long ttl) {
+        requireKey(key);
+        if (ttl <= 0) {
+            throw new IllegalArgumentException("TTL must be positive");
+        }
         String cacheKey = CACHE_PREFIX + key;
         if (value == null) {
             // null 值使用较短 TTL 防穿透
@@ -89,6 +98,7 @@ public class RedisCacheImpl implements RedisCache {
 
     @Override
     public boolean evict(String key) {
+        requireKey(key);
         String cacheKey = CACHE_PREFIX + key;
         return Boolean.TRUE.equals(redisTemplate.delete(cacheKey));
     }
@@ -98,8 +108,8 @@ public class RedisCacheImpl implements RedisCache {
         if (keys == null || keys.isEmpty()) {
             return;
         }
+        keys.forEach(this::requireKey);
         List<String> cacheKeys = keys.stream()
-                .filter(Objects::nonNull)
                 .map(key -> CACHE_PREFIX + key)
                 .toList();
         redisTemplate.delete(cacheKeys);
@@ -108,20 +118,41 @@ public class RedisCacheImpl implements RedisCache {
     @Override
     public long evictByPattern(String pattern) {
         if (pattern == null || pattern.isBlank()) {
-            return 0L;
+            throw new IllegalArgumentException("pattern must not be blank");
         }
-        List<String> keys = new ArrayList<>();
+        if ("*".equals(pattern) || "**".equals(pattern)) {
+            throw new IllegalArgumentException("global wildcard pattern is not allowed");
+        }
         ScanOptions options = ScanOptions.scanOptions()
                 .match(CACHE_PREFIX + pattern)
                 .count(cacheProperties.getScanBatchSize())
                 .build();
+        long deletedTotal = 0L;
+        List<String> batch = new ArrayList<>((int) Math.min(cacheProperties.getScanBatchSize(), 1024L));
         try (var cursor = redisTemplate.scan(options)) {
-            cursor.forEachRemaining(keys::add);
+            while (cursor.hasNext()) {
+                batch.add(cursor.next());
+                if (batch.size() >= cacheProperties.getScanBatchSize()) {
+                    deletedTotal += deleteBatch(batch);
+                    batch.clear();
+                }
+            }
         }
+        deletedTotal += deleteBatch(batch);
+        return deletedTotal;
+    }
+
+    private long deleteBatch(Collection<String> keys) {
         if (keys.isEmpty()) {
             return 0L;
         }
         Long deleted = redisTemplate.delete(keys);
         return deleted == null ? 0L : deleted;
+    }
+
+    private void requireKey(String key) {
+        if (key == null || key.isBlank()) {
+            throw new IllegalArgumentException("key must not be blank");
+        }
     }
 }

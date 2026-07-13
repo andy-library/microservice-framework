@@ -4,6 +4,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import org.springframework.boot.SpringApplication;
+import org.springframework.boot.WebApplicationType;
 import org.springframework.context.ConfigurableApplicationContext;
 
 import com.microservice.demo.DemoApplication;
@@ -32,12 +33,12 @@ class ConfigCenterConflictTest {
     void testNacosOnlyConfigurationGovernance() {
         ConfigurableApplicationContext context = null;
         try {
-            context = SpringApplication.run(DemoApplication.class,
+            context = runApplication(
                     "--spring.profiles.active=full-embedded",
                     "--framework.nacos.enabled=true",
+                    "--framework.nacos.data-id=microservice-framework-demo.yml",
                     "--framework.apollo.enabled=false",
                     "--framework.config.enabled=true",
-                    "--server.port=0",
                     "--spring.datasource.url=jdbc:h2:mem:conflict-nacos;DB_CLOSE_DELAY=-1;MODE=MySQL");
         } catch (Exception e) {
             if (context != null) {
@@ -60,12 +61,13 @@ class ConfigCenterConflictTest {
     void testApolloOnlyConfigurationGovernance() {
         ConfigurableApplicationContext context = null;
         try {
-            context = SpringApplication.run(DemoApplication.class,
+            context = runApplication(
                     "--spring.profiles.active=full-embedded",
                     "--framework.apollo.enabled=true",
+                    "--framework.apollo.app-id=microservice-framework-demo",
+                    "--framework.apollo.meta-server-url=http://127.0.0.1:8080",
                     "--framework.nacos.enabled=false",
                     "--framework.config.enabled=true",
-                    "--server.port=0",
                     "--spring.datasource.url=jdbc:h2:mem:conflict-apollo;DB_CLOSE_DELAY=-1;MODE=MySQL");
         } catch (Exception e) {
             if (context != null) {
@@ -88,11 +90,10 @@ class ConfigCenterConflictTest {
     void testBothDisabledNoGovernance() {
         ConfigurableApplicationContext context = null;
         try {
-            context = SpringApplication.run(DemoApplication.class,
+            context = runApplication(
                     "--spring.profiles.active=full-embedded",
                     "--framework.nacos.enabled=false",
                     "--framework.apollo.enabled=false",
-                    "--server.port=0",
                     "--spring.datasource.url=jdbc:h2:mem:conflict-none;DB_CLOSE_DELAY=-1;MODE=MySQL");
         } catch (Exception e) {
             if (context != null) {
@@ -118,12 +119,14 @@ class ConfigCenterConflictTest {
 
         try {
             // Both config centers enabled simultaneously — must fail with mutual exclusion error
-            context = SpringApplication.run(DemoApplication.class,
+            context = runApplication(
                     "--spring.profiles.active=full-embedded",
                     "--framework.nacos.enabled=true",
+                    "--framework.nacos.data-id=microservice-framework-demo.yml",
                     "--framework.apollo.enabled=true",
+                    "--framework.apollo.app-id=microservice-framework-demo",
+                    "--framework.apollo.meta-server-url=http://127.0.0.1:8080",
                     "--framework.config.enabled=true",
-                    "--server.port=0",
                     "--spring.datasource.url=jdbc:h2:mem:conflict-both;DB_CLOSE_DELAY=-1;MODE=MySQL");
         } catch (Exception e) {
             exception = e;
@@ -160,5 +163,12 @@ class ConfigCenterConflictTest {
 
         assertTrue(foundMutualExclusion,
                 "Failure should explain the nacos/apollo mutual exclusion: " + exception.getMessage());
+    }
+
+    private static ConfigurableApplicationContext runApplication(String... args) {
+        System.setProperty("JM.LOG.PATH", System.getProperty("java.io.tmpdir") + "/nacos-test-logs");
+        SpringApplication application = new SpringApplication(DemoApplication.class);
+        application.setWebApplicationType(WebApplicationType.NONE);
+        return application.run(args);
     }
 }

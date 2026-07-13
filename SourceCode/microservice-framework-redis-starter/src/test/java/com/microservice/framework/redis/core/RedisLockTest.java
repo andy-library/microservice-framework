@@ -14,6 +14,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -116,11 +117,41 @@ class RedisLockTest {
     class Unlock {
 
         @Test
-        @DisplayName("unlock(key) 成功释放锁时返回 true")
-        void unlockSuccess() {
-            when(valueOperations.get(anyString())).thenReturn("lock-value-uuid");
+        @DisplayName("unlock(key) 只使用当前线程成功获取锁时保存的 owner token")
+        void unlockShouldUseAcquiredOwnerTokenWithoutReadingCurrentRedisValue() {
+            when(valueOperations.setIfAbsent(anyString(), anyString(), anyLong(), any()))
+                    .thenReturn(true);
             when(redisTemplate.execute(any(), any(), anyString())).thenReturn(1L);
 
+            assertThat(redisLock.tryLock("order-123")).isTrue();
+            assertThat(redisLock.unlock("order-123")).isTrue();
+
+            org.mockito.ArgumentCaptor<String> token = org.mockito.ArgumentCaptor.forClass(String.class);
+            verify(valueOperations).setIfAbsent(
+                    eq("framework:lock:order-123"), token.capture(), anyLong(), any());
+            verify(redisTemplate).execute(any(), eq(java.util.List.of("framework:lock:order-123")),
+                    eq(token.getValue()));
+            verify(valueOperations, never()).get(anyString());
+        }
+
+        @Test
+        @DisplayName("unlock(key) 没有当前线程 owner token 时绝不执行删除脚本")
+        void unlockWithoutCurrentThreadOwnerTokenMustNotDeleteAnotherOwnerLock() {
+            when(valueOperations.get("framework:lock:order-123")).thenReturn("another-owner-token");
+
+            assertThat(redisLock.unlock("order-123")).isFalse();
+
+            verify(redisTemplate, never()).execute(any(), any(), anyString());
+        }
+
+        @Test
+        @DisplayName("unlock(key) 成功释放锁时返回 true")
+        void unlockSuccess() {
+            when(valueOperations.setIfAbsent(anyString(), anyString(), anyLong(), any()))
+                    .thenReturn(true);
+            when(redisTemplate.execute(any(), any(), anyString())).thenReturn(1L);
+
+            assertThat(redisLock.tryLock("order-123")).isTrue();
             boolean result = redisLock.unlock("order-123");
 
             assertThat(result).isTrue();
@@ -140,11 +171,11 @@ class RedisLockTest {
         @DisplayName("unlock(key) 非持有者释放时返回 false")
         void unlockWhenNotOwner() {
             when(valueOperations.get(anyString())).thenReturn("lock-value-uuid");
-            when(redisTemplate.execute(any(), any(), anyString())).thenReturn(0L);
 
             boolean result = redisLock.unlock("order-123");
 
             assertThat(result).isFalse();
+            verify(redisTemplate, never()).execute(any(), any(), anyString());
         }
     }
 

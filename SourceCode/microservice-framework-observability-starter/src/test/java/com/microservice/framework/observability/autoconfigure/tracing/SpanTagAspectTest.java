@@ -14,6 +14,8 @@ import org.aspectj.lang.reflect.MethodSignature;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.boot.autoconfigure.AutoConfigurations;
+import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
@@ -95,6 +97,95 @@ class SpanTagAspectTest {
     }
 
     @Test
+    @DisplayName("@SpanTag: 敏感键和值不得进入 Span")
+    void spanTag_sensitiveValuesAreRedacted() throws Throwable {
+        FakeSpan fakeSpan = new FakeSpan();
+        fakeTracer.setCurrentSpan(fakeSpan);
+
+        Method method = TaggedService.class.getMethod("processSecret", String.class);
+        Object result = aspect.addSpanTags(createJoinPointWithMethodAndArgs(
+                "result", method, new Object[]{"Bearer top-secret-token"}));
+
+        assertThat(result).isEqualTo("result");
+        assertThat(fakeSpan.getTagValue("authorization")).isEqualTo("[REDACTED]");
+    }
+
+    @Test
+    @DisplayName("@SpanTag: 配置的敏感键应被脱敏")
+    void spanTag_configuredSensitiveKeysAreRedacted() {
+        FakeTracer tracer = new FakeTracer();
+        FakeSpan span = new FakeSpan();
+        tracer.setCurrentSpan(span);
+
+        new ApplicationContextRunner()
+                .withConfiguration(AutoConfigurations.of(SpanTagAspectAutoConfiguration.class))
+                .withBean(Tracer.class, () -> tracer)
+                .withPropertyValues("framework.observability.tracing.span-tags.sensitive-keys[0]=customerId")
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    SpanTagAspectAutoConfiguration.SpanTagAspect configuredAspect =
+                            context.getBean(SpanTagAspectAutoConfiguration.SpanTagAspect.class);
+                    Method method = TaggedService.class.getMethod("processCustomer", String.class);
+
+                    Object result = configuredAspect.addSpanTags(
+                            createJoinPointWithMethodAndArgs("result", method, new Object[]{"customer-123"}));
+
+                    assertThat(result).isEqualTo("result");
+                    assertThat(span.getTagValue("customerId")).isEqualTo("[REDACTED]");
+                });
+    }
+
+    @Test
+    @DisplayName("@SpanTag: 配置的高基数字段应被脱敏")
+    void spanTag_configuredHighCardinalityKeysAreRedacted() {
+        FakeTracer tracer = new FakeTracer();
+        FakeSpan span = new FakeSpan();
+        tracer.setCurrentSpan(span);
+
+        new ApplicationContextRunner()
+                .withConfiguration(AutoConfigurations.of(SpanTagAspectAutoConfiguration.class))
+                .withBean(Tracer.class, () -> tracer)
+                .withPropertyValues("framework.observability.tracing.span-tags.high-cardinality-keys[0]=orderId")
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    SpanTagAspectAutoConfiguration.SpanTagAspect configuredAspect =
+                            context.getBean(SpanTagAspectAutoConfiguration.SpanTagAspect.class);
+                    Method method = TaggedService.class.getMethod("processOrder", String.class);
+
+                    Object result = configuredAspect.addSpanTags(
+                            createJoinPointWithMethodAndArgs("result", method, new Object[]{"order-123456789"}));
+
+                    assertThat(result).isEqualTo("result");
+                    assertThat(span.getTagValue("orderId")).isEqualTo("[REDACTED]");
+                });
+    }
+
+    @Test
+    @DisplayName("@SpanTag: 配置的最大标签值长度应限制输出")
+    void spanTag_configuredMaxValueLengthIsApplied() {
+        FakeTracer tracer = new FakeTracer();
+        FakeSpan span = new FakeSpan();
+        tracer.setCurrentSpan(span);
+
+        new ApplicationContextRunner()
+                .withConfiguration(AutoConfigurations.of(SpanTagAspectAutoConfiguration.class))
+                .withBean(Tracer.class, () -> tracer)
+                .withPropertyValues("framework.observability.tracing.span-tags.max-value-length=8")
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    SpanTagAspectAutoConfiguration.SpanTagAspect configuredAspect =
+                            context.getBean(SpanTagAspectAutoConfiguration.SpanTagAspect.class);
+                    Method method = TaggedService.class.getMethod("processWithCustomKey", String.class);
+
+                    Object result = configuredAspect.addSpanTags(
+                            createJoinPointWithMethodAndArgs("result", method, new Object[]{"1234567890"}));
+
+                    assertThat(result).isEqualTo("result");
+                    assertThat(span.getTagValue("custom.key")).isEqualTo("12345678");
+                });
+    }
+
+    @Test
     @DisplayName("@SpanTag: 无活跃 Span 时不报错")
     void spanTag_noActiveSpanDoesNotError() throws Throwable {
         fakeTracer.setCurrentSpan(null);
@@ -114,6 +205,10 @@ class SpanTagAspectTest {
             return "processed:" + orderId;
         }
 
+        public String processCustomer(@SpanTag("customerId") String customerId) {
+            return "customer:" + customerId;
+        }
+
         public String processWithCustomKey(@SpanTag("custom.key") String value) {
             return "custom:" + value;
         }
@@ -122,6 +217,10 @@ class SpanTagAspectTest {
                 @SpanTag("key1") String first,
                 @SpanTag("key2") Integer second) {
             return "multi:" + first + ":" + second;
+        }
+
+        public String processSecret(@SpanTag("authorization") String authorization) {
+            return authorization;
         }
     }
 

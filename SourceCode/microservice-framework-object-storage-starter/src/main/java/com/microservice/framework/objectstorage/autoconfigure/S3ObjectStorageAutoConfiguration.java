@@ -8,6 +8,14 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.S3Configuration;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+
+import java.net.URI;
 
 /**
  * AWS S3 对象存储自动配置
@@ -26,6 +34,52 @@ import org.springframework.context.annotation.Bean;
         havingValue = "true", matchIfMissing = true)
 public class S3ObjectStorageAutoConfiguration {
 
+    @Bean(destroyMethod = "close")
+    @ConditionalOnMissingBean(S3Client.class)
+    public S3Client s3Client(ObjectStorageProperties properties) {
+        var connection = properties.getConnection();
+        String accessKey = ObjectStorageSupport.requireProperty(connection.getAccessKey(),
+                "framework.object-storage.connection.access-key");
+        String secretKey = ObjectStorageSupport.requireProperty(connection.getSecretKey(),
+                "framework.object-storage.connection.secret-key");
+        String region = ObjectStorageSupport.requireProperty(connection.getRegion(),
+                "framework.object-storage.connection.region");
+        String endpoint = ObjectStorageSupport.requireProperty(connection.getEndpoint(),
+                "framework.object-storage.connection.endpoint");
+        return S3Client.builder()
+                .region(Region.of(region))
+                .credentialsProvider(StaticCredentialsProvider.create(
+                        AwsBasicCredentials.create(accessKey, secretKey)))
+                .endpointOverride(URI.create(endpoint))
+                .serviceConfiguration(S3Configuration.builder()
+                        .pathStyleAccessEnabled(isNonAwsEndpoint(endpoint))
+                        .build())
+                .build();
+    }
+
+    @Bean(destroyMethod = "close")
+    @ConditionalOnMissingBean(S3Presigner.class)
+    public S3Presigner s3Presigner(ObjectStorageProperties properties) {
+        var connection = properties.getConnection();
+        String accessKey = ObjectStorageSupport.requireProperty(connection.getAccessKey(),
+                "framework.object-storage.connection.access-key");
+        String secretKey = ObjectStorageSupport.requireProperty(connection.getSecretKey(),
+                "framework.object-storage.connection.secret-key");
+        String region = ObjectStorageSupport.requireProperty(connection.getRegion(),
+                "framework.object-storage.connection.region");
+        String endpoint = ObjectStorageSupport.requireProperty(connection.getEndpoint(),
+                "framework.object-storage.connection.endpoint");
+        return S3Presigner.builder()
+                .region(Region.of(region))
+                .credentialsProvider(StaticCredentialsProvider.create(
+                        AwsBasicCredentials.create(accessKey, secretKey)))
+                .endpointOverride(URI.create(endpoint))
+                .serviceConfiguration(S3Configuration.builder()
+                        .pathStyleAccessEnabled(isNonAwsEndpoint(endpoint))
+                        .build())
+                .build();
+    }
+
     /**
      * 提供 S3ObjectStorageOperations Bean
      * <p>
@@ -37,8 +91,11 @@ public class S3ObjectStorageAutoConfiguration {
      */
     @Bean("s3ObjectStorageOperations")
     @ConditionalOnMissingBean(ObjectStorageOperations.class)
-    public ObjectStorageOperations s3ObjectStorageOperations(ObjectStorageProperties properties) {
-        return new S3ObjectStorageOperations(properties);
+    public ObjectStorageOperations s3ObjectStorageOperations(S3Client s3Client,
+                                                             ObjectStorageProperties properties) {
+        ObjectStorageSupport.requireProperty(properties.getConnection().getBucket(),
+                "framework.object-storage.connection.bucket");
+        return new S3ObjectStorageOperations(s3Client, properties);
     }
 
     /**
@@ -54,7 +111,15 @@ public class S3ObjectStorageAutoConfiguration {
     @ConditionalOnMissingBean(PreSignedUrlGenerator.class)
     @ConditionalOnProperty(prefix = "framework.object-storage.presign", name = "enabled",
             havingValue = "true", matchIfMissing = true)
-    public PreSignedUrlGenerator s3PreSignedUrlGenerator(ObjectStorageProperties properties) {
-        return new S3PreSignedUrlGenerator(properties);
+    public PreSignedUrlGenerator s3PreSignedUrlGenerator(S3Presigner s3Presigner,
+                                                         ObjectStorageProperties properties) {
+        ObjectStorageSupport.requireProperty(properties.getConnection().getBucket(),
+                "framework.object-storage.connection.bucket");
+        return new S3PreSignedUrlGenerator(s3Presigner, properties);
+    }
+
+    private static boolean isNonAwsEndpoint(String endpoint) {
+        String host = URI.create(endpoint).getHost();
+        return host == null || !host.endsWith("amazonaws.com");
     }
 }

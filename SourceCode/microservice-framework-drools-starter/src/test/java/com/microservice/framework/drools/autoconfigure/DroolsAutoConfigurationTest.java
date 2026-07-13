@@ -24,12 +24,11 @@ class DroolsAutoConfigurationTest {
             .withConfiguration(AutoConfigurations.of(DroolsAutoConfiguration.class));
 
     @Test
-    @DisplayName("默认配置应激活 Drools 自动配置")
-    void defaultConfigurationShouldActivateDrools() {
+    @DisplayName("启用 Drools 但未配置规则文件时应启动失败")
+    void enabledDroolsWithoutRuleFilesShouldFailFast() {
         contextRunner.run(context -> {
-            assertThat(context).hasNotFailed();
-            assertThat(context).hasBean("ruleEngine");
-            assertThat(context).hasBean("ruleVersion");
+            assertThat(context).hasFailed();
+            assertThat(context.getStartupFailure()).hasRootCauseMessage("Drools rule engine is enabled but no rule files are configured");
         });
     }
 
@@ -47,18 +46,20 @@ class DroolsAutoConfigurationTest {
     @Test
     @DisplayName("RuleEngine 应具备基本方法")
     void ruleEngineShouldHaveBasicMethods() {
-        contextRunner.run(context -> {
+        contextRunner.withPropertyValues("framework.drools.rule.rule-files[0]=rules/eligibility.drl")
+                .run(context -> {
             assertThat(context).hasNotFailed();
             RuleEngine engine = context.getBean(RuleEngine.class);
             assertThat(engine.validate()).isTrue();
-            assertThat(engine.getRuleCount()).isEqualTo(0);
+            assertThat(engine.getRuleCount()).isEqualTo(1);
         });
     }
 
     @Test
     @DisplayName("RuleVersion 应包含默认版本信息")
     void ruleVersionShouldContainDefaultVersionInfo() {
-        contextRunner.run(context -> {
+        contextRunner.withPropertyValues("framework.drools.rule.rule-files[0]=rules/eligibility.drl")
+                .run(context -> {
             assertThat(context).hasNotFailed();
             RuleVersion version = context.getBean(RuleVersion.class);
             assertThat(version.getGroupId()).isEqualTo("com.microservice.framework");
@@ -69,18 +70,27 @@ class DroolsAutoConfigurationTest {
     }
 
     @Test
-    @DisplayName("配置规则文件后 RuleEngine 应返回规则数量")
-    void configuredRuleFilesShouldReflectInRuleCount() {
+    @DisplayName("配置规则文件后 RuleEngine 应返回已编译规则数量")
+    void configuredRuleFilesShouldReflectCompiledRuleCount() {
         contextRunner.withPropertyValues(
-                "framework.drools.rule.rule-files[0]=rules/discount.drl",
-                "framework.drools.rule.rule-files[1]=rules/risk.drl")
+                "framework.drools.rule.rule-files[0]=rules/eligibility.drl")
                 .run(context -> {
                     assertThat(context).hasNotFailed();
                     RuleEngine engine = context.getBean(RuleEngine.class);
-                    assertThat(engine.getRuleCount()).isEqualTo(2);
+                    assertThat(engine.getRuleCount()).isEqualTo(1);
 
                     DroolsProperties properties = context.getBean(DroolsProperties.class);
-                    assertThat(properties.getRule().getRuleFiles()).containsExactly("rules/discount.drl", "rules/risk.drl");
+                    assertThat(properties.getRule().getRuleFiles()).containsExactly("rules/eligibility.drl");
+                });
+    }
+
+    @Test
+    @DisplayName("启动校验启用时非法规则文件应启动失败")
+    void invalidRuleFileShouldFailStartupWhenValidationIsEnabled() {
+        contextRunner.withPropertyValues("framework.drools.rule.rule-files[0]=rules/invalid-rule.drl")
+                .run(context -> {
+                    assertThat(context).hasFailed();
+                    assertThat(context.getStartupFailure()).hasRootCauseMessage("Drools rule compilation failed");
                 });
     }
 
@@ -88,6 +98,7 @@ class DroolsAutoConfigurationTest {
     @DisplayName("自定义会话和治理配置应正确绑定")
     void customSessionAndGovernancePropertiesShouldBindCorrectly() {
         contextRunner.withPropertyValues(
+                "framework.drools.rule.rule-files[0]=rules/eligibility.drl",
                 "framework.drools.session.max-sessions=50",
                 "framework.drools.session.session-timeout=60000",
                 "framework.drools.governance.audit-enabled=false",

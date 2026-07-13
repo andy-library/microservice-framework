@@ -56,11 +56,18 @@
         <!-- 数据库治理 -->
         <shardingsphere.version>5.5.1</shardingsphere.version>
         <checker-qual.version>3.41.0</checker-qual.version>
-        <error-prone-annotations.version>2.23.0</error-prone-annotations.version>
+        <error-prone-annotations.version>2.27.0</error-prone-annotations.version>
         <commons-lang3.version>3.15.0</commons-lang3.version>
         <snakeyaml.version>2.3</snakeyaml.version>
         <commons-logging.version>1.2</commons-logging.version>
         <antlr4-runtime.version>4.13.0</antlr4-runtime.version>
+        <spring-cloud-alibaba.version>2023.0.3.4</spring-cloud-alibaba.version>
+        <apollo-client.version>2.5.0</apollo-client.version>
+        <bouncycastle.version>1.78</bouncycastle.version>
+        <commons-io.version>2.15.1</commons-io.version>
+        <gson.version>2.11.0</gson.version>
+        <protobuf-java.version>3.25.5</protobuf-java.version>
+        <httpclient.version>4.5.14</httpclient.version>
 
         <!-- 测试相关 -->
         <rest-assured.version>5.3.2</rest-assured.version>
@@ -95,6 +102,20 @@
                 <groupId>org.springframework.cloud</groupId>
                 <artifactId>spring-cloud-dependencies</artifactId>
                 <version>${spring-cloud.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <!-- ================================================================
+                 Spring Cloud Alibaba BOM
+                 作用：提供 Nacos ConfigData 客户端与 Spring Cloud 2023.0.x 适配版本
+                 原因：Nacos Starter 需要真实客户端与 ConfigData 集成，而不是仅注册描述符
+                 版本说明：2023.0.3.4 属于 Spring Cloud 2023.0 兼容线，管理 Nacos Client 2.4.x
+                 ================================================================ -->
+            <dependency>
+                <groupId>com.alibaba.cloud</groupId>
+                <artifactId>spring-cloud-alibaba-dependencies</artifactId>
+                <version>${spring-cloud-alibaba.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -232,6 +253,62 @@
                 <groupId>org.antlr</groupId>
                 <artifactId>antlr4-runtime</artifactId>
                 <version>${antlr4-runtime.version}</version>
+            </dependency>
+
+            <!-- Spring Cloud Kubernetes 3.1.6 transitive convergence pins -->
+            <dependency>
+                <groupId>org.bouncycastle</groupId>
+                <artifactId>bcprov-jdk18on</artifactId>
+                <version>${bouncycastle.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.bouncycastle</groupId>
+                <artifactId>bcpkix-jdk18on</artifactId>
+                <version>${bouncycastle.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.bouncycastle</groupId>
+                <artifactId>bcutil-jdk18on</artifactId>
+                <version>${bouncycastle.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>commons-io</groupId>
+                <artifactId>commons-io</artifactId>
+                <version>${commons-io.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.google.code.gson</groupId>
+                <artifactId>gson</artifactId>
+                <version>${gson.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.google.protobuf</groupId>
+                <artifactId>protobuf-java</artifactId>
+                <version>${protobuf-java.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.httpcomponents</groupId>
+                <artifactId>httpclient</artifactId>
+                <version>${httpclient.version}</version>
+            </dependency>
+
+            <!-- Apollo ConfigData 客户端：Apollo 官方 Java 客户端与 Spring Boot ConfigData 集成 -->
+            <dependency>
+                <groupId>com.ctrip.framework.apollo</groupId>
+                <artifactId>apollo-client</artifactId>
+                <version>${apollo-client.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.ctrip.framework.apollo</groupId>
+                <artifactId>apollo-client-config-data</artifactId>
+                <version>${apollo-client.version}</version>
             </dependency>
 
             <!-- Guava: Google 核心 Java 库

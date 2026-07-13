@@ -6,10 +6,19 @@ import org.springframework.boot.autoconfigure.AutoConfigureBefore;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.beans.factory.SmartInitializingSingleton;
 import org.springframework.context.annotation.Bean;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.AnonymousAuthenticationFilter;
+import org.springframework.security.config.Customizer;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+import org.springframework.context.annotation.Import;
+
+import org.springframework.beans.factory.ObjectProvider;
 
 /**
  * Framework Security 基础自动配置
@@ -27,7 +36,10 @@ import org.springframework.security.web.SecurityFilterChain;
  */
 @AutoConfiguration
 @EnableConfigurationProperties(SecurityProperties.class)
+@EnableMethodSecurity
+@Import(SecurityAccessDeniedExceptionHandler.class)
 @ConditionalOnClass(SecurityFilterChain.class)
+@ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
 @ConditionalOnProperty(prefix = "framework.security", name = "enabled", havingValue = "true", matchIfMissing = true)
 @AutoConfigureBefore(org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class)
 public class FrameworkSecurityAutoConfiguration {
@@ -50,7 +62,10 @@ public class FrameworkSecurityAutoConfiguration {
      */
     @Bean
     @ConditionalOnMissingBean(SecurityFilterChain.class)
-    public SecurityFilterChain securityFilterChain(HttpSecurity http, SecurityProperties properties) throws Exception {
+    public SecurityFilterChain securityFilterChain(
+            HttpSecurity http,
+            SecurityProperties properties,
+            ObjectProvider<JwtDecoder> jwtDecoder) throws Exception {
         // Configure CORS if enabled
         if (properties.getCors().isEnabled()) {
             http.cors(cors -> cors.configurationSource(request -> {
@@ -81,6 +96,35 @@ public class FrameworkSecurityAutoConfiguration {
         // Disable CSRF for REST APIs (typical for microservices)
         http.csrf(csrf -> csrf.disable());
 
+        if (!properties.getJwt().isEnabled()) {
+            http.httpBasic(Customizer.withDefaults());
+        }
+
+        if (properties.getServiceIdentity().isEnabled()) {
+            http.addFilterBefore(
+                    new ServiceIdentityAuthenticationFilter(properties.getServiceIdentity()),
+                    AnonymousAuthenticationFilter.class);
+        }
+
+        if (properties.getJwt().isEnabled() && jwtDecoder.getIfAvailable() != null) {
+            http.oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt.decoder(jwtDecoder.getObject())));
+        }
+
         return http.build();
+    }
+
+    @Bean
+    public SmartInitializingSingleton securityProductionSafetyValidator(SecurityProperties properties) {
+        return () -> {
+            SecurityProperties.ServiceIdentityProperties serviceIdentity = properties.getServiceIdentity();
+            if (serviceIdentity.isEnabled() && !hasText(serviceIdentity.getServiceToken())) {
+                throw new IllegalStateException(
+                        "framework.security.service-identity.enabled requires service identity credentials");
+            }
+        };
+    }
+
+    private static boolean hasText(String value) {
+        return value != null && !value.isBlank();
     }
 }

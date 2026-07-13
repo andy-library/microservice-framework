@@ -1,2 +1,5 @@
+org.springframework.boot.env.EnvironmentPostProcessor=\
+com.microservice.framework.apollo.autoconfigure.ApolloConfigDataEnvironmentPostProcessor
+
 org.springframework.boot.diagnostics.FailureAnalyzer=\
 com.microservice.framework.apollo.autoconfigure.NacosExclusionFailureAnalyzer

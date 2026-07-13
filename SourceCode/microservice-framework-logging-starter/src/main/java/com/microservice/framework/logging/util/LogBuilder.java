@@ -4,6 +4,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.slf4j.event.Level;
+import ch.qos.logback.classic.LoggerContext;
+import com.microservice.framework.logging.core.masking.PatternMaskingConverter;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -197,7 +199,7 @@ public class LogBuilder {
         try {
             Class<?> jsonUtilsClass = Class.forName("com.microservice.framework.json.util.JsonUtils");
             java.lang.reflect.Method toJsonMethod = jsonUtilsClass.getMethod("toJson", Object.class);
-            return (String) toJsonMethod.invoke(null, map);
+            return maskStructuredData((String) toJsonMethod.invoke(null, map));
         } catch (Exception ignored) {
             // 降级到简单实现
         }
@@ -223,7 +225,17 @@ public class LogBuilder {
             first = false;
         }
         sb.append("}");
-        return sb.toString();
+        return maskStructuredData(sb.toString());
+    }
+
+    private String maskStructuredData(String value) {
+        if (LoggerFactory.getILoggerFactory() instanceof LoggerContext context) {
+            Object converter = context.getObject("patternMaskingConverter");
+            if (converter instanceof PatternMaskingConverter maskingConverter) {
+                return maskingConverter.mask(value);
+            }
+        }
+        return value;
     }
 
     private String escapeJson(String str) {

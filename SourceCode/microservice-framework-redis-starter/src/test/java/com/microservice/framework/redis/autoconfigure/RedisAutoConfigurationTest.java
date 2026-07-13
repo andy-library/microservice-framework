@@ -244,6 +244,10 @@ class RedisAutoConfigurationTest {
                 public void put(String key, Object value, long ttl) { }
                 @Override
                 public boolean evict(String key) { return true; }
+                @Override
+                public void evictAll(java.util.List<String> keys) { }
+                @Override
+                public long evictByPattern(String pattern) { return 0L; }
             };
 
             contextRunner.withBean("customRedisCache", RedisCache.class, () -> customCache)

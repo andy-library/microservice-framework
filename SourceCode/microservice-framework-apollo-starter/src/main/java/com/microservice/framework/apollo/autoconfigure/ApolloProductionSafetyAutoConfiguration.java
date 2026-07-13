@@ -17,7 +17,7 @@ import java.util.Locale;
  */
 @AutoConfiguration
 @EnableConfigurationProperties({ApolloProperties.class, ConfigGovernanceProperties.class})
-@ConditionalOnProperty(prefix = "framework.apollo", name = "enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(prefix = "framework.apollo", name = "enabled", havingValue = "true")
 public class ApolloProductionSafetyAutoConfiguration {
 
     @Bean

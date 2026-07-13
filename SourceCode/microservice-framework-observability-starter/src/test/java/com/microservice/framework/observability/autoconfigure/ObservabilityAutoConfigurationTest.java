@@ -11,6 +11,7 @@ import org.springframework.boot.WebApplicationType;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 class ObservabilityAutoConfigurationTest {
@@ -76,15 +77,11 @@ class ObservabilityAutoConfigurationTest {
     }
 
     @Test
-    @DisplayName("生产环境必须声明 baggage 传播键")
-    void prodShouldRejectEmptyBaggageKeys() {
+    @DisplayName("生产环境默认不要求 baggage 传播键")
+    void prodShouldNotRequireBaggageKeys() {
         contextRunner
                 .withPropertyValues("spring.profiles.active=prod")
-                .run(context -> {
-                    assertThat(context).hasFailed();
-                    assertThat(context.getStartupFailure())
-                            .hasMessageContaining("framework.observability.tracing.baggage-keys must not be empty in prod profile");
-                });
+                .run(context -> assertThat(context).hasNotFailed());
     }
 
     @Test

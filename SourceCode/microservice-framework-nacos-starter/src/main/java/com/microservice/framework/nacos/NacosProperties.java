@@ -16,7 +16,7 @@ public class NacosProperties {
     /**
      * 是否启用 Nacos 配置中心集成，默认 true
      */
-    private boolean enabled = true;
+    private boolean enabled = false;
 
     /**
      * Nacos 服务器地址，默认 localhost:8848

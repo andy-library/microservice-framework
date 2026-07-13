@@ -190,9 +190,9 @@ public class SecurityProperties {
     public static class ServiceIdentityProperties {
 
         /**
-         * 是否启用服务身份验证，默认 true
+         * 是否启用服务身份验证，默认 false
          */
-        private boolean enabled = true;
+        private boolean enabled = false;
 
         /**
          * 服务 Token 请求头名称，默认 "X-Service-Token"
@@ -201,6 +201,17 @@ public class SecurityProperties {
          * 接收方通过验证此 token 确认调用来源。
          */
         private String serviceTokenHeader = "X-Service-Token";
+
+        /**
+         * 静态服务凭据。启用服务身份时必须显式配置或由自定义认证组件提供。
+         */
+        private String serviceToken;
+
+        /** Calling service identity header. */
+        private String serviceIdHeader = "X-Service-Id";
+
+        /** Paths that require trusted service authentication. */
+        private List<String> protectedPaths = new ArrayList<>();
 
         // Getters and Setters
 
@@ -218,6 +229,30 @@ public class SecurityProperties {
 
         public void setServiceTokenHeader(String serviceTokenHeader) {
             this.serviceTokenHeader = serviceTokenHeader;
+        }
+
+        public String getServiceToken() {
+            return serviceToken;
+        }
+
+        public void setServiceToken(String serviceToken) {
+            this.serviceToken = serviceToken;
+        }
+
+        public String getServiceIdHeader() {
+            return serviceIdHeader;
+        }
+
+        public void setServiceIdHeader(String serviceIdHeader) {
+            this.serviceIdHeader = serviceIdHeader;
+        }
+
+        public List<String> getProtectedPaths() {
+            return protectedPaths;
+        }
+
+        public void setProtectedPaths(List<String> protectedPaths) {
+            this.protectedPaths = protectedPaths == null ? new ArrayList<>() : new ArrayList<>(protectedPaths);
         }
     }
 
@@ -341,10 +376,12 @@ public class SecurityProperties {
         /**
          * 允许未经认证访问的路径模式列表
          * <p>
-         * 默认允许健康检查和 Actuator 端点:
-         * {@code /actuator/**}, {@code /health}
+         * 默认仅允许 Kubernetes 健康与就绪探针。
          */
-        private List<String> permitPaths = new ArrayList<>(Arrays.asList("/actuator/**", "/health"));
+        private List<String> permitPaths = new ArrayList<>(Arrays.asList(
+                "/actuator/health",
+                "/actuator/health/liveness",
+                "/actuator/health/readiness"));
 
         /**
          * 禁止访问的路径模式列表

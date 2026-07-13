@@ -40,7 +40,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
         "framework.logging.masking.enabled=true",
         "framework.logging.flood-protection.enabled=true",
-        "app.demo.job.rate=1000"
+        "app.demo.job.rate=60000"
 })
 public class FrameworkVerificationTest {
 
@@ -206,8 +206,8 @@ public class FrameworkVerificationTest {
     public void testTraceIdPropagation() {
         given().when().get("/api/demo/tracing/current").then()
                 .statusCode(200)
-                .body("traceId", notNullValue())
-                .body("spanId", notNullValue());
+                .body("data.traceId", notNullValue())
+                .body("data.spanId", notNullValue());
     }
 
     @Test
@@ -215,8 +215,8 @@ public class FrameworkVerificationTest {
         given().header("user-id", "verify-user").header("tenant-id", "verify-tenant")
                 .when().get("/api/demo/tracing/baggage").then()
                 .statusCode(200)
-                .body("userId", equalTo("verify-user"))
-                .body("tenantId", equalTo("verify-tenant"));
+                .body("data.userId", equalTo("verify-user"))
+                .body("data.tenantId", equalTo("verify-tenant"));
     }
 
     @Test
@@ -247,8 +247,8 @@ public class FrameworkVerificationTest {
                 .when().get("/api/demo/tracing/current");
 
         resp.then().statusCode(200);
-        String traceId = resp.path("traceId");
-        String requestId = resp.path("requestId");
+        String traceId = resp.path("data.traceId");
+        String requestId = resp.path("data.requestId");
 
         // Priority 1: TraceId wins over Header Priority 2
         assertEquals(traceId, requestId, "RequestId should equal TraceId by Priority 1");

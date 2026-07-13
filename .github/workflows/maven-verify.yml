@@ -25,27 +25,53 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '21'
           cache: maven
 
-      - name: Verify parent and install framework BOMs
+      - name: Install parent and framework BOMs
         working-directory: SourceCode/microservice-framework-parent
-        run: mvn -B clean install
+        run: mvn -B clean install -Dinvoker.skip=true
 
-      - name: Verify starters
+      - name: Verify and install starters
         shell: bash
         run: |
           set -euo pipefail
-          for module in SourceCode/microservice-framework-*-starter; do
+          modules=(
+            microservice-framework-common-starter
+            microservice-framework-json-starter
+            microservice-framework-logging-starter
+            microservice-framework-observability-starter
+            microservice-framework-nacos-starter
+            microservice-framework-apollo-starter
+            microservice-framework-database-starter
+            microservice-framework-redis-starter
+            microservice-framework-kafka-starter
+            microservice-framework-elasticsearch-starter
+            microservice-framework-async-starter
+            microservice-framework-xxl-job-starter
+            microservice-framework-web-starter
+            microservice-framework-feign-starter
+            microservice-framework-security-starter
+            microservice-framework-drools-starter
+            microservice-framework-audit-starter
+            microservice-framework-field-encryption-starter
+            microservice-framework-object-storage-starter
+          )
+          for starter in "${modules[@]}"; do
+            module="SourceCode/${starter}"
             echo "Verifying ${module}"
-            (cd "${module}" && mvn -B clean verify)
+            (cd "${module}" && mvn -B clean install)
           done
+
+      - name: Verify parent consumer contracts
+        working-directory: SourceCode/microservice-framework-parent
+        run: mvn -N -B invoker:run
 
       - name: Verify demo
         working-directory: Microservice Demo/SourceCode/microservice-framework-demo

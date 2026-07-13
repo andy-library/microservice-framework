@@ -1,3 +1,6 @@
+org.springframework.boot.env.EnvironmentPostProcessor=\
+com.microservice.framework.nacos.autoconfigure.NacosConfigDataEnvironmentPostProcessor
+
 org.springframework.boot.diagnostics.FailureAnalyzer=\
 com.microservice.framework.nacos.autoconfigure.ApolloExclusionFailureAnalyzer,\
 com.microservice.framework.nacos.autoconfigure.ConfigCenterMutualExclusionFailureAnalyzer

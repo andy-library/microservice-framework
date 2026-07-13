@@ -21,6 +21,9 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.core.env.Environment;
 import org.springframework.core.env.Profiles;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.elasticsearch.client.ClientConfiguration;
 import org.springframework.data.elasticsearch.client.elc.ElasticsearchTemplate;
 import org.springframework.data.elasticsearch.core.document.Document;
 import org.springframework.data.elasticsearch.core.index.AliasAction;
@@ -29,6 +32,9 @@ import org.springframework.data.elasticsearch.core.index.AliasActions;
 import org.springframework.data.elasticsearch.core.mapping.IndexCoordinates;
 import org.springframework.data.elasticsearch.core.query.IndexQueryBuilder;
 
+import java.lang.reflect.Method;
+import java.net.URI;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -66,6 +72,43 @@ public class ElasticsearchAutoConfiguration {
         this.properties = properties;
     }
 
+    @Bean
+    @ConditionalOnMissingBean(ClientConfiguration.class)
+    public ClientConfiguration elasticsearchClientConfiguration() {
+        ElasticsearchProperties.ConnectionProperties connection = properties.getConnection();
+        List<String> uris = connection.getUris();
+        if (uris == null || uris.isEmpty()) {
+            throw new IllegalArgumentException("framework.elasticsearch.connection.uris must not be empty");
+        }
+
+        List<String> endpoints = new ArrayList<>();
+        boolean useSsl = false;
+        for (String uriValue : uris) {
+            if (uriValue == null || uriValue.isBlank()) {
+                throw new IllegalArgumentException("Elasticsearch uri must not be blank");
+            }
+            URI uri = URI.create(uriValue);
+            String host = uri.getHost();
+            int port = uri.getPort();
+            if (host == null || port < 0) {
+                throw new IllegalArgumentException("Elasticsearch uri must include host and port: " + uriValue);
+            }
+            useSsl = useSsl || "https".equalsIgnoreCase(uri.getScheme());
+            endpoints.add(host + ":" + port);
+        }
+
+        ClientConfiguration.MaybeSecureClientConfigurationBuilder builder =
+                ClientConfiguration.builder().connectedTo(endpoints.toArray(String[]::new));
+        ClientConfiguration.TerminalClientConfigurationBuilder terminal = useSsl ? builder.usingSsl() : builder;
+        terminal = terminal
+                .withConnectTimeout(Duration.ofMillis(connection.getConnectTimeout()))
+                .withSocketTimeout(Duration.ofMillis(connection.getSocketTimeout()));
+        if (connection.getUsername() != null && !connection.getUsername().isBlank()) {
+            terminal = terminal.withBasicAuth(connection.getUsername(), connection.getPassword());
+        }
+        return terminal.build();
+    }
+
     /**
      * 注册 ElasticsearchOperations 默认实现。
      *
@@ -100,8 +143,9 @@ public class ElasticsearchAutoConfiguration {
     @Bean("indexManager")
     @ConditionalOnMissingBean(IndexManager.class)
     public IndexManager indexManager(
-            ObjectProvider<ElasticsearchTemplate> elasticsearchTemplateProvider) {
-        return new DefaultIndexManager(elasticsearchTemplateProvider.getIfAvailable());
+            ObjectProvider<ElasticsearchTemplate> elasticsearchTemplateProvider,
+            Environment environment) {
+        return new DefaultIndexManager(elasticsearchTemplateProvider.getIfAvailable(), environment);
     }
 
     /**
@@ -141,6 +185,19 @@ public class ElasticsearchAutoConfiguration {
                 throw new FrameworkException(
                         FrameworkErrorCode.of(MODULE, "GOVERNANCE", 4),
                         "framework.elasticsearch.query.max-from-size must not exceed 10000 in prod profile");
+            }
+        };
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(name = "elasticsearchClientAvailabilityValidator")
+    public SmartInitializingSingleton elasticsearchClientAvailabilityValidator(
+            ObjectProvider<ElasticsearchTemplate> elasticsearchTemplateProvider) {
+        return () -> {
+            if (properties.isFailFastClient() && elasticsearchTemplateProvider.getIfAvailable() == null) {
+                throw new FrameworkException(
+                        FrameworkErrorCode.of(MODULE, "CLIENT", 2),
+                        "ElasticsearchTemplate is not available; check Elasticsearch client auto-configuration");
             }
         };
     }
@@ -229,8 +286,9 @@ public class ElasticsearchAutoConfiguration {
 
         @Override
         public <T> List<T> search(String indexName, SearchQueryBuilder builder, Class<T> clazz) {
-            requireTemplate();
             validateSearchArguments(indexName, builder, clazz);
+            validateBuilderGovernance(builder);
+            requireTemplate();
             org.springframework.data.elasticsearch.core.query.Query query = buildQuery(builder);
             org.springframework.data.elasticsearch.core.SearchHits<T> searchHits =
                     elasticsearchTemplate.search(query, clazz, IndexCoordinates.of(indexName));
@@ -242,12 +300,13 @@ public class ElasticsearchAutoConfiguration {
         @Override
         public <T> List<T> search(String indexName, SearchQueryBuilder builder,
                                   org.springframework.data.domain.Pageable pageable, Class<T> clazz) {
-            requireTemplate();
             validateSearchArguments(indexName, builder, clazz);
             if (pageable == null) {
                 throw new IllegalArgumentException("pageable must not be null");
             }
             validatePageable(pageable);
+            validateBuilderGovernance(builder);
+            requireTemplate();
             org.springframework.data.elasticsearch.core.query.Query query =
                     buildQuery(builder).setPageable(pageable);
             org.springframework.data.elasticsearch.core.SearchHits<T> searchHits =
@@ -264,30 +323,42 @@ public class ElasticsearchAutoConfiguration {
             if (documents == null || documents.isEmpty()) {
                 throw new IllegalArgumentException("documents must not be null or empty");
             }
-            List<org.springframework.data.elasticsearch.core.query.IndexQuery> queries = new ArrayList<>();
-            for (Object document : documents) {
-                org.springframework.data.elasticsearch.core.query.IndexQuery indexQuery =
-                        new IndexQueryBuilder()
-                                .withObject(document)
-                                .withIndex(indexName)
-                                .build();
-                queries.add(indexQuery);
-            }
-
             List<String> successfulIds = new ArrayList<>();
             List<String> failedIds = new ArrayList<>();
             Map<String, String> failedItems = new HashMap<>();
+            int batchSize = properties.getBulk().getBatchSize();
+            IndexCoordinates indexCoordinates = IndexCoordinates.of(indexName);
 
-            List<org.springframework.data.elasticsearch.core.IndexedObjectInformation> results =
-                    elasticsearchTemplate.bulkIndex(queries, IndexCoordinates.of(indexName));
-
-            for (org.springframework.data.elasticsearch.core.IndexedObjectInformation result : results) {
-                String id = result.id();
-                if (id != null) {
-                    successfulIds.add(id);
-                } else {
-                    failedIds.add("unknown");
-                    failedItems.put("unknown", "Index operation returned null id");
+            for (int start = 0; start < documents.size(); start += batchSize) {
+                List<?> batch = documents.subList(start, Math.min(start + batchSize, documents.size()));
+                List<org.springframework.data.elasticsearch.core.query.IndexQuery> queries = new ArrayList<>();
+                for (Object document : batch) {
+                    org.springframework.data.elasticsearch.core.query.IndexQuery indexQuery =
+                            new IndexQueryBuilder()
+                                    .withId(extractDocumentId(document))
+                                    .withObject(document)
+                                    .withIndex(indexName)
+                                    .build();
+                    queries.add(indexQuery);
+                }
+                try {
+                    List<org.springframework.data.elasticsearch.core.IndexedObjectInformation> results =
+                            elasticsearchTemplate.bulkIndex(queries, indexCoordinates);
+                    for (org.springframework.data.elasticsearch.core.IndexedObjectInformation result : results) {
+                        String id = result.id();
+                        if (id != null) {
+                            successfulIds.add(id);
+                        } else {
+                            failedIds.add("unknown");
+                            failedItems.put("unknown", "Index operation returned null id");
+                        }
+                    }
+                } catch (Exception e) {
+                    for (Object document : batch) {
+                        String id = Optional.ofNullable(extractDocumentId(document)).orElse("unknown");
+                        failedIds.add(id);
+                        failedItems.put(id, e.getMessage());
+                    }
                 }
             }
             refreshIfImmediate(indexName);
@@ -348,9 +419,37 @@ public class ElasticsearchAutoConfiguration {
             builder.validateSize(properties.getQuery().getMaxSize());
             builder.validateFromSize(properties.getQuery().getMaxFromSize());
             String queryJson = buildQueryJson(builder);
-            org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(
-                    builder.getFrom() / builder.getSize(), builder.getSize());
-            return new org.springframework.data.elasticsearch.core.query.StringQuery(queryJson, pageable);
+            Pageable pageable = new OffsetPageable(builder.getFrom(), builder.getSize());
+            return new org.springframework.data.elasticsearch.core.query.StringQuery(queryJson, pageable, buildSort(builder));
+        }
+
+        private Sort buildSort(SearchQueryBuilder builder) {
+            Sort sort = Sort.unsorted();
+            for (SearchQueryBuilder.SortClause sortClause : builder.getSorts()) {
+                Sort.Direction direction = sortClause.direction() == SearchQueryBuilder.SortDirection.ASC
+                        ? Sort.Direction.ASC : Sort.Direction.DESC;
+                sort = sort.and(Sort.by(direction, sortClause.field()));
+            }
+            return sort;
+        }
+
+        private String extractDocumentId(Object document) {
+            if (document == null) {
+                return null;
+            }
+            try {
+                Method idAccessor = document.getClass().getMethod("id");
+                Object id = idAccessor.invoke(document);
+                return id == null ? null : id.toString();
+            } catch (ReflectiveOperationException ignored) {
+                try {
+                    Method getId = document.getClass().getMethod("getId");
+                    Object id = getId.invoke(document);
+                    return id == null ? null : id.toString();
+                } catch (ReflectiveOperationException ignoredAgain) {
+                    return null;
+                }
+            }
         }
 
         private void validatePageable(org.springframework.data.domain.Pageable pageable) {
@@ -498,6 +597,11 @@ public class ElasticsearchAutoConfiguration {
             }
         }
 
+        private void validateBuilderGovernance(SearchQueryBuilder builder) {
+            builder.validateSize(properties.getQuery().getMaxSize());
+            builder.validateFromSize(properties.getQuery().getMaxFromSize());
+        }
+
         private void validateName(String value, String fieldName) {
             if (value == null || value.isBlank()) {
                 throw new IllegalArgumentException(fieldName + " must not be blank");
@@ -511,6 +615,66 @@ public class ElasticsearchAutoConfiguration {
                         "ElasticsearchTemplate is not available; check Elasticsearch client auto-configuration");
             }
         }
+
+        private record OffsetPageable(long offset, int pageSize) implements Pageable {
+
+            private OffsetPageable {
+                if (offset < 0) {
+                    throw new IllegalArgumentException("offset must be >= 0");
+                }
+                if (pageSize < 1) {
+                    throw new IllegalArgumentException("pageSize must be >= 1");
+                }
+            }
+
+            @Override
+            public int getPageNumber() {
+                return Math.toIntExact(offset / pageSize);
+            }
+
+            @Override
+            public int getPageSize() {
+                return pageSize;
+            }
+
+            @Override
+            public long getOffset() {
+                return offset;
+            }
+
+            @Override
+            public Sort getSort() {
+                return Sort.unsorted();
+            }
+
+            @Override
+            public Pageable next() {
+                return new OffsetPageable(offset + pageSize, pageSize);
+            }
+
+            @Override
+            public Pageable previousOrFirst() {
+                return hasPrevious() ? new OffsetPageable(Math.max(offset - pageSize, 0), pageSize) : first();
+            }
+
+            @Override
+            public Pageable first() {
+                return new OffsetPageable(0, pageSize);
+            }
+
+            @Override
+            public Pageable withPage(int pageNumber) {
+                if (pageNumber < 0) {
+                    throw new IllegalArgumentException("pageNumber must be >= 0");
+                }
+                return new OffsetPageable((long) pageNumber * pageSize, pageSize);
+            }
+
+            @Override
+            public boolean hasPrevious() {
+                return offset > 0;
+            }
+        }
     }
 
     /**
@@ -522,15 +686,22 @@ public class ElasticsearchAutoConfiguration {
     static class DefaultIndexManager implements IndexManager {
 
         private final ElasticsearchTemplate elasticsearchTemplate;
+        private final Environment environment;
 
-        DefaultIndexManager(ElasticsearchTemplate elasticsearchTemplate) {
+        DefaultIndexManager(ElasticsearchTemplate elasticsearchTemplate, Environment environment) {
             this.elasticsearchTemplate = elasticsearchTemplate;
+            this.environment = environment;
         }
 
         @Override
         public boolean createIndex(String indexName) {
             requireTemplate();
             validateName(indexName, "indexName");
+            if (isProd()) {
+                throw new FrameworkException(
+                        FrameworkErrorCode.of(MODULE, "INDEX", 4),
+                        "Explicit mapping is required when creating Elasticsearch indexes in prod profile");
+            }
             org.springframework.data.elasticsearch.core.IndexOperations indexOps =
                     elasticsearchTemplate.indexOps(IndexCoordinates.of(indexName));
             if (indexOps.exists()) {
@@ -648,6 +819,10 @@ public class ElasticsearchAutoConfiguration {
                     .build();
             return elasticsearchTemplate.indexOps(IndexCoordinates.of(toIndex))
                     .alias(new AliasActions(new AliasAction.Remove(remove), new AliasAction.Add(add)));
+        }
+
+        private boolean isProd() {
+            return environment != null && environment.acceptsProfiles(Profiles.of("prod"));
         }
 
         private void validateName(String value, String fieldName) {

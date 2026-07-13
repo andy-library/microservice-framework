@@ -8,6 +8,8 @@ import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.autoconfigure.web.servlet.WebMvcAutoConfiguration;
 import org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration;
 import org.springframework.boot.test.context.runner.WebApplicationContextRunner;
+import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -28,7 +30,19 @@ class FrameworkSecurityAutoConfigurationTest {
             .withConfiguration(AutoConfigurations.of(
                     org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class,
                     WebMvcAutoConfiguration.class,
-                    FrameworkSecurityAutoConfiguration.class));
+                    FrameworkSecurityAutoConfiguration.class,
+                    JwtAutoConfiguration.class));
+
+    @Test
+    @DisplayName("非 Web 应用不应创建 Servlet 安全过滤链")
+    void nonWebApplicationShouldNotActivateServletSecurity() {
+        new ApplicationContextRunner()
+                .withConfiguration(AutoConfigurations.of(FrameworkSecurityAutoConfiguration.class))
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context).doesNotHaveBean("securityFilterChain");
+                });
+    }
 
     // ======================================================================
     // Default activation
@@ -96,6 +110,30 @@ class FrameworkSecurityAutoConfigurationTest {
     @Nested
     @DisplayName("属性绑定")
     class PropertyBinding {
+
+        @Test
+        @DisplayName("配置 issuer、JWK 和 audience 后必须注册 JWT 解码器")
+        void resourceServerConfigurationShouldRegisterJwtDecoder() {
+            contextRunner.withPropertyValues(
+                            "framework.security.jwt.issuer-uri=https://keycloak.example.com/realms/test",
+                            "framework.security.jwt.jwk-set-uri=https://keycloak.example.com/realms/test/protocol/openid-connect/certs",
+                            "framework.security.jwt.audience=orders")
+                    .run(context -> {
+                        assertThat(context).hasNotFailed();
+                        assertThat(context).hasSingleBean(JwtDecoder.class);
+                    });
+        }
+
+        @Test
+        @DisplayName("启用服务身份但未配置凭据时必须拒绝启动")
+        void serviceIdentityWithoutCredentialsShouldFailClosed() {
+            contextRunner.withPropertyValues("framework.security.service-identity.enabled=true")
+                    .run(context -> {
+                        assertThat(context).hasFailed();
+                        assertThat(context.getStartupFailure())
+                                .hasMessageContaining("service identity credentials");
+                    });
+        }
 
         @Test
         @DisplayName("自定义 jwt.issuerUri 应绑定到 SecurityProperties")

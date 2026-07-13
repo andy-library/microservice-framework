@@ -1,5 +1,9 @@
 package com.microservice.demo.controller;
 
+import com.microservice.framework.kafka.api.KafkaConsumerBuilder;
+import com.microservice.framework.kafka.api.KafkaMessageConsumer;
+import com.microservice.framework.kafka.api.KafkaPublisher;
+import com.microservice.framework.database.api.OutboxPublisher;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -9,4 +13,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/test/kafka")
 public class KafkaTestController extends KafkaDemoController {
+    public KafkaTestController(KafkaPublisher<Object> publisher, KafkaConsumerBuilder builder,
+                               KafkaMessageConsumer consumer, OutboxPublisher outboxPublisher) {
+        super(publisher, builder, consumer, outboxPublisher);
+    }
 }

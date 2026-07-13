@@ -11,6 +11,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
+import org.springframework.beans.factory.DisposableBean;
 import org.springframework.lang.Nullable;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
@@ -118,7 +119,7 @@ public class AsyncAutoConfiguration {
     /**
      * 基于 ThreadPoolTaskExecutor 的默认 AsyncTaskExecutor 实现
      */
-    static class DefaultAsyncTaskExecutor implements AsyncTaskExecutor {
+    static class DefaultAsyncTaskExecutor implements AsyncTaskExecutor, DisposableBean {
 
         private final ThreadPoolTaskExecutor delegate;
 
@@ -149,6 +150,11 @@ public class AsyncAutoConfiguration {
         @Override
         public long getCompletedTaskCount() {
             return delegate.getThreadPoolExecutor().getCompletedTaskCount();
+        }
+
+        @Override
+        public void destroy() {
+            delegate.shutdown();
         }
     }
 }

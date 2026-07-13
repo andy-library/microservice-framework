@@ -1,13 +1,17 @@
 package com.microservice.framework.web.context;
 
+import com.microservice.framework.common.context.ContextKeys;
+import com.microservice.framework.common.context.ThreadLocalContextAdapter;
 import com.microservice.framework.web.WebProperties;
 import jakarta.servlet.FilterChain;
-import jakarta.servlet.ServletRequest;
-import jakarta.servlet.ServletResponse;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.slf4j.MDC;
 
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -15,7 +19,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.verify;
 
 /**
  * RequestIdFilter behavior tests.
@@ -29,10 +32,40 @@ import static org.mockito.Mockito.verify;
 class RequestIdFilterTest {
 
     private final WebProperties.RequestIdProperties defaultProps = new WebProperties.RequestIdProperties();
-    private final RequestIdFilter filter = new RequestIdFilter(defaultProps);
+    private final ThreadLocalContextAdapter contextAdapter = new ThreadLocalContextAdapter();
+    private final RequestIdFilter filter = new RequestIdFilter(defaultProps, contextAdapter);
     private final HttpServletRequest request = mock(HttpServletRequest.class);
-    private final ServletResponse response = mock(ServletResponse.class);
+    private final HttpServletResponse response = mock(HttpServletResponse.class);
     private final FilterChain chain = mock(FilterChain.class);
+
+    @BeforeEach
+    @AfterEach
+    void clearMdc() {
+        MDC.clear();
+    }
+
+    @Test
+    @DisplayName("存在 TraceId 时应覆盖请求头并同步全部请求上下文")
+    void traceIdShouldHaveHighestPriority() throws Exception {
+        MDC.put("traceId", "0123456789abcdef0123456789abcdef");
+        when(request.getHeader("X-Request-ID")).thenReturn("gateway-request-id");
+
+        AtomicReference<String> capturedRequestId = new AtomicReference<>();
+        AtomicReference<String> capturedMdcRequestId = new AtomicReference<>();
+        org.mockito.Mockito.doAnswer(invocation -> {
+            capturedRequestId.set(RequestIdContext.get());
+            capturedMdcRequestId.set(MDC.get(ContextKeys.REQUEST_ID));
+            return null;
+        }).when(chain).doFilter(request, response);
+
+        filter.doFilter(request, response, chain);
+
+        assertThat(capturedRequestId.get()).isEqualTo("0123456789abcdef0123456789abcdef");
+        assertThat(capturedMdcRequestId.get()).isEqualTo("0123456789abcdef0123456789abcdef");
+        verify(request).setAttribute(ContextKeys.REQUEST_ID, "0123456789abcdef0123456789abcdef");
+        verify(response).setHeader("X-Request-ID", "0123456789abcdef0123456789abcdef");
+        assertThat(MDC.get(ContextKeys.REQUEST_ID)).isNull();
+    }
 
     // ======================================================================
     // Existing header propagation
@@ -48,16 +81,21 @@ class RequestIdFilterTest {
             when(request.getHeader("X-Request-ID")).thenReturn("existing-req-123");
 
             AtomicReference<String> capturedId = new AtomicReference<>();
+            AtomicReference<String> capturedCommonId = new AtomicReference<>();
             org.mockito.Mockito.doAnswer(invocation -> {
                 capturedId.set(RequestIdContext.get());
+                capturedCommonId.set(contextAdapter.get().get(ContextKeys.REQUEST_ID));
                 return null;
             }).when(chain).doFilter(request, response);
 
             filter.doFilter(request, response, chain);
 
             assertThat(capturedId.get()).isEqualTo("existing-req-123");
+            assertThat(capturedCommonId.get()).isEqualTo("existing-req-123");
             assertThat(RequestIdContext.get()).isNull(); // cleaned up after filter
+            assertThat(contextAdapter.snapshot().toMap()).isEmpty();
             verify(chain).doFilter(request, response);
+            verify(response).setHeader("X-Request-ID", "existing-req-123");
         }
 
         @Test
@@ -109,7 +147,7 @@ class RequestIdFilterTest {
         void noGenerateWhenDisabled() throws Exception {
             WebProperties.RequestIdProperties props = new WebProperties.RequestIdProperties();
             props.setGenerateIfMissing(false);
-            RequestIdFilter disabledFilter = new RequestIdFilter(props);
+            RequestIdFilter disabledFilter = new RequestIdFilter(props, contextAdapter);
 
             when(request.getHeader("X-Request-ID")).thenReturn(null);
 
