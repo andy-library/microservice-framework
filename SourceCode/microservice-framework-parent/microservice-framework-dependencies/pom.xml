@@ -63,7 +63,7 @@
         <antlr4-runtime.version>4.13.0</antlr4-runtime.version>
         <spring-cloud-alibaba.version>2023.0.3.4</spring-cloud-alibaba.version>
         <apollo-client.version>2.5.0</apollo-client.version>
-        <bouncycastle.version>1.78</bouncycastle.version>
+        <bouncycastle.version>1.84</bouncycastle.version>
         <commons-io.version>2.15.1</commons-io.version>
         <gson.version>2.11.0</gson.version>
         <protobuf-java.version>3.25.5</protobuf-java.version>
