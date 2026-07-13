@@ -238,7 +238,7 @@ info:
   app:
     name: Microservice Framework Demo
     description: Demonstration application for all Microservice Framework starters
-    version: 1.0.0-SNAPSHOT
+    version: 1.0.0-alpha.1
   framework:
     starters:
       - microservice-framework-common-starter

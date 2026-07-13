@@ -231,7 +231,7 @@ info:
   app:
     name: Microservice Framework Demo (Local Smoke)
     description: Demonstration application — no middleware dependencies, quick-start profile
-    version: 1.0.0-SNAPSHOT
+    version: 1.0.0-alpha.1
     profile: local-smoke
   framework:
     starters:
