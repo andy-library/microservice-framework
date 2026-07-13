@@ -1,5 +1,8 @@
-blank_issues_enabled: true
+blank_issues_enabled: false
 contact_links:
+  - name: Questions and architecture discussions
+    url: https://github.com/andy-library/microservice-framework/discussions
+    about: Ask usage questions, discuss architecture, and share implementation experience with the community.
   - name: Security Policy
     url: https://github.com/andy-library/microservice-framework/security/policy
     about: Please report vulnerabilities according to the security policy instead of opening public issues.

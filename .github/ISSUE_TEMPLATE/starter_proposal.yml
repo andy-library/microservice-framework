@@ -1,0 +1,63 @@
+name: Starter proposal
+description: Propose a new Starter or a significant extension to an existing Starter.
+title: "[Starter Proposal]: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping evolve Microservice Framework. Proposals should describe a reusable framework capability rather than project-specific business logic.
+  - type: input
+    id: starter
+    attributes:
+      label: Starter or capability name
+      placeholder: e.g. grpc-starter or database-starter migration support
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem statement
+      description: What recurring application problem should the framework solve?
+    validations:
+      required: true
+  - type: textarea
+    id: users
+    attributes:
+      label: Target applications and evidence
+      description: Describe applicable application types, real usage evidence, and why this belongs in a shared framework.
+    validations:
+      required: true
+  - type: textarea
+    id: api
+    attributes:
+      label: Proposed public API and configuration
+      description: Outline application-facing APIs, configuration prefix, defaults, and extension points.
+    validations:
+      required: true
+  - type: textarea
+    id: boundaries
+    attributes:
+      label: Production boundaries
+      description: Cover failure behavior, security, resource limits, compatibility, observability, and graceful shutdown where applicable.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance evidence
+      description: Describe unit, integration, Demo Controller API, real-middleware, and performance validation that should be required.
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Proposal checks
+      options:
+        - label: This is a reusable framework capability, not application-specific business logic.
+          required: true
+        - label: I have searched existing Issues, Discussions, PRDs, and Starters for overlap.
+          required: true
+        - label: I understand that an accepted proposal must include documentation and automated acceptance evidence.
+          required: true

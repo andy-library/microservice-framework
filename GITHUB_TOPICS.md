@@ -1,60 +1,38 @@
-# GitHub Topics
+# GitHub Repository Metadata
 
 Author: Andy Yang
 
-Recommended repository name:
+The repository uses the following public discovery metadata.
+
+## Description
 
 ```text
-microservice-framework
+AI-driven, production-oriented Java 21 microservice framework with Spring Boot 3, 19 reusable starters, real middleware tests, and enterprise governance.
 ```
 
-Recommended repository description:
-
-```text
-Enterprise-grade Java/Spring Boot microservice framework with parent POMs, BOM governance, production-ready starters, demo verification, and JMeter performance reports.
-```
-
-Recommended topics:
+## Topics
 
 ```text
 java
+java21
 spring-boot
 spring-cloud
 microservices
 microservice-framework
-enterprise-framework
 spring-boot-starter
+enterprise-java
+distributed-systems
+cloud-native
+kubernetes
 maven
-bom
 redis
 kafka
 elasticsearch
 nacos
 apollo
 observability
-logging
 security
-keycloak
-xxl-job
-shardingsphere
-jmeter
-kubernetes
+ai-driven-development
 ```
 
-Priority topics when the number of topics is limited:
-
-```text
-java
-spring-boot
-spring-cloud
-microservices
-microservice-framework
-enterprise-framework
-spring-boot-starter
-maven
-redis
-kafka
-kubernetes
-observability
-security
-```
+Metadata changes should remain concise and reflect capabilities that are present and publicly verifiable in the repository.
